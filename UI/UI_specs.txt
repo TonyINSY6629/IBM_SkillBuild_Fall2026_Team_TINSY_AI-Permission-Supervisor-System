@@ -1,0 +1,11 @@
+Window size: default, 10% of the resolution (e.g. 607x341 for 1920x1080) 
+Font: Noto Serif JP
+Colors:
+PANEL BACKGROUND      #000000   the pop-up itself
+PAGE BACKGROUND       #101214   behind the pop-up, command/target bar
+TEXT                  #FFFFFF   titles, description, target line
+GREY / SECONDARY      #9E9E9E   countdown, prompt line, IDs, minus and close, links
+BORDER / DIVIDER      #303338   every 1px line, category badge fill, progress bar track
+YELLOW (WARNING)      #FFFE00   warning badge, countdown at 10s or less, progress bar fill, selected sample
+RED (DANGER)          #FF0000   deny button, "Outside workspace" / "Touches secrets" badges, close hover
+GREEN (SAFE)          #00FF1B   allow button, "Allowed" confirmation

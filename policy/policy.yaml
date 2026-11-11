@@ -1,0 +1,218 @@
+# AI Permission Supervisor — Policy
+# Version: 2026-11-04-v1
+#
+# This file is the authoritative decision table consumed by the Rule Engine.
+# The Rule Engine loads this file at startup (and on background refresh).
+# The Hook Client never touches this file.
+#
+# Structure:
+#   meta         — version info
+#   hard_rails   — unconditional deny rules, evaluated first, highest priority
+#   allow_rules  — clear-cut allow rules for known-safe patterns
+#   default      — what to do when no rule matches
+#
+# Rule evaluation order:
+#   1. hard_rails   (first match → deny, stop)
+#   2. allow_rules  (first match → allow, stop)
+#   3. default      (no match → escalate)
+#
+# Condition fields (all are optional; omitted field = match anything):
+#   category        — taxonomy category id (from taxonomy.yaml)
+#   action_type     — READ | WRITE | EXEC | OTHER
+#   inside_workspace — true | false
+#   touches_secrets — true | false
+#   target_pattern  — glob pattern matched against any element of targets[]
+#
+# Verdict fields:
+#   action      — allow | deny | escalate
+#   decided_by  — rule | hard_rail
+#   label       — Safe | Neutral | Warning
+#   reason      — human-readable explanation (shown in escalation UI and sent
+#                 to model on stderr for deny)
+
+meta:
+  version_tag: "2026-11-04-v1"
+  description: "Initial rules-only policy. No model in the ambiguous path yet."
+  taxonomy_version: "draft-2026-11-04-v1"
+
+# ===========================================================================
+# HARD RAILS — unconditional deny, evaluated first
+# Human feedback on these is for_review_only=true — cannot loosen via training.
+# ===========================================================================
+
+hard_rails:
+
+  - id: hr-001
+    name: deny_supervisor_path_write
+    description: >
+      The agent must never write to the Supervisor's own files. This prevents
+      the agent from modifying audit logs, policy files, the hook client, or
+      the probe script. Covers both direct file-write tools and shell commands
+      that target Supervisor paths.
+    condition:
+      category: supervisor_path_access
+      action_type: WRITE
+    verdict:
+      action: deny
+      decided_by: hard_rail
+      label: Warning
+      reason: >
+        Blocked: write to Supervisor path is not permitted. The Supervisor's
+        files (audit log, policy, hook client) must not be modified by the agent.
+
+  - id: hr-002
+    name: deny_supervisor_path_read
+    description: >
+      The agent must not read Supervisor state either — reading the audit log
+      or policy file could allow the agent to reason about evasion strategies.
+      Shell-based reads of Supervisor paths are also denied.
+    condition:
+      category: supervisor_path_access
+      action_type: READ
+    verdict:
+      action: deny
+      decided_by: hard_rail
+      label: Warning
+      reason: >
+        Blocked: read of Supervisor path is not permitted. The Supervisor's
+        internal state (audit log, policy, hook configuration) is off-limits.
+
+  - id: hr-003
+    name: deny_supervisor_path_exec
+    description: >
+      Shell execution targeting Supervisor paths or hook registration files.
+      Catches commands like "python hook_client/probe.py" or edits to
+      ~/.bob/settings/settings.json via shell.
+    condition:
+      category: supervisor_path_access
+      action_type: EXEC
+    verdict:
+      action: deny
+      decided_by: hard_rail
+      label: Warning
+      reason: >
+        Blocked: shell execution targeting Supervisor or hook configuration
+        paths is not permitted.
+
+  - id: hr-004
+    name: deny_bob_settings_write
+    description: >
+      Unconditionally deny any write to ~/.bob/ (Bob's global settings
+      directory). The agent must not be able to remove or modify the hook
+      registration that enforces Supervisor interception. This hard rail
+      catches writes via file-write tools that are not already classified
+      as supervisor_path_access (belt-and-suspenders).
+    condition:
+      action_type: WRITE
+      target_pattern: "**/.bob/**"
+    verdict:
+      action: deny
+      decided_by: hard_rail
+      label: Warning
+      reason: >
+        Blocked: writes to ~/.bob/ are not permitted. Modifying Bob's global
+        settings could disable the Supervisor's hook registration.
+
+  - id: hr-005
+    name: deny_workspace_outside_write
+    description: >
+      Deny any file write whose target path resolves outside all known
+      workspace roots. Prevents the agent from writing to system directories,
+      the user's home directory outside the project, temp directories, or
+      escaping the workspace via path traversal.
+    condition:
+      category: workspace_outside_write
+      action_type: WRITE
+    verdict:
+      action: deny
+      decided_by: hard_rail
+      label: Warning
+      reason: >
+        Blocked: write target is outside the workspace root. The agent is
+        not permitted to write files outside the active workspace.
+
+  - id: hr-006
+    name: deny_secret_write
+    description: >
+      Deny any write that targets a known secret file pattern (e.g. .env,
+      *.pem, credential files). Reading secrets is escalated (not hard-railed)
+      because some legitimate workflows require reading .env files; writing
+      them is categorically denied.
+    condition:
+      touches_secrets: true
+      action_type: WRITE
+    verdict:
+      action: deny
+      decided_by: hard_rail
+      label: Warning
+      reason: >
+        Blocked: write to a file matching a secret/credential pattern is not
+        permitted. If this is intentional, perform the write manually.
+
+# ===========================================================================
+# ALLOW RULES — clear-cut safe operations, evaluated after hard rails
+# ===========================================================================
+
+allow_rules:
+
+  - id: al-001
+    name: allow_workspace_file_read
+    description: >
+      Read-only access to files inside the workspace is safe and should never
+      require human approval. Covers read_file, list_files, glob, grep,
+      GetSymbolsOverview, FindSymbol, FindReferencingSymbols.
+    condition:
+      category: file_read
+      action_type: READ
+      inside_workspace: true
+      touches_secrets: false
+    verdict:
+      action: allow
+      decided_by: rule
+      label: Safe
+      reason: "Read-only access to workspace file — auto-allowed."
+
+  - id: al-002
+    name: allow_workspace_file_write
+    description: >
+      File writes inside the workspace that do not touch secret patterns are
+      the normal coding workflow. Auto-allow these so the agent is not
+      interrupted on every edit. Audit entry is still written.
+    condition:
+      category: file_write
+      action_type: WRITE
+      inside_workspace: true
+      touches_secrets: false
+    verdict:
+      action: allow
+      decided_by: rule
+      label: Neutral
+      reason: "Write to workspace file — auto-allowed."
+
+# ===========================================================================
+# DEFAULT — no hard rail matched, no allow rule matched
+# ===========================================================================
+
+default:
+  action: escalate
+  label: Warning
+  reason: >
+    No policy rule matched this tool call. Escalating to human for approval.
+    If this is a recurring legitimate operation, add a rule to policy.yaml.
+
+# ===========================================================================
+# NOTES FOR FUTURE POLICY UPDATES
+# ===========================================================================
+#
+# The following categories are intentionally left to the default (escalate)
+# until there is enough labeled data to write specific rules:
+#
+#   shell_exec          — too broad; model needed to distinguish safe shell
+#                         commands (e.g. "python --version") from dangerous ones
+#   network_request     — always escalate until network policy is defined
+#   secret_access (READ)— escalate, not deny: some legitimate reads exist
+#   unclassified        — escalate by definition
+#
+# When the student model is deployed (Step 5), the ambiguous path will use
+# the model verdict instead of defaulting to escalate. The hard rails and
+# allow rules in this file remain in effect regardless of the model.

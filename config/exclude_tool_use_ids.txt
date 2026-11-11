@@ -1,0 +1,5 @@
+# Known mislabels from Step 4 review (Christina's testing log).
+# One tool_use_id per line. These entries are left out of training and testing.
+tooluse_FaUiSiUxrIrkOIAb5zuiTA   # 2026-11-05 git clean -nd (dry run, harmless) was denied; should be Allow
+tooluse_5GPF2osec4WOjP2yjqLpin   # 2026-11-05 git clean -ndx (dry run, harmless) was denied; should be Allow
+tooluse_wT79PV92WlMX96M1pW4Ee1   # 2026-11-06 creating .gitignore inside practice-app was denied; should be Allow

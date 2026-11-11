@@ -1,0 +1,64 @@
+{
+  "_comment": [
+    "Supervisor hook settings for ~/.bob/settings/settings.json.",
+    "Merge this into your existing settings.json when you are ready to",
+    "switch from the probe hook to the real Hook Client.",
+    "",
+    "Timeout ordering (must be maintained):",
+    "  escalation_timeout (120 s) < HOOK_DEADLINE_SECONDS (130 s) < timeout here (150 s)",
+    "",
+    "Windows path for main.py: adjust if your project root differs.",
+    "On Windows, use the full path to python.exe if python3 is not on PATH.",
+    "",
+    "The probe hook entries in probe_settings.json can be REMOVED once",
+    "you switch to this settings file — the Supervisor service logs everything."
+  ],
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"C:/Education/FORDHAM/Jobs/IBM/IBM SkillBuild Fall2026/Project/hook_client/main.py\"",
+            "timeout": 150
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"C:/Education/FORDHAM/Jobs/IBM/IBM SkillBuild Fall2026/Project/hook_client/main.py\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"C:/Education/FORDHAM/Jobs/IBM/IBM SkillBuild Fall2026/Project/hook_client/main.py\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"C:/Education/FORDHAM/Jobs/IBM/IBM SkillBuild Fall2026/Project/hook_client/main.py\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,310 @@
+
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Activity Diagram — Build-Time Pipeline</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "Segoe UI", system-ui, sans-serif; font-size: 14px; line-height: 1.6; background: #ffffff; color: #1f2328; }
+  .page { max-width: 900px; margin: 0 auto; padding: 36px 28px 48px; }
+  h1 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .subtitle { color: #57606a; font-size: 13px; margin-bottom: 32px; }
+  h2 { font-size: 15px; font-weight: 600; margin: 32px 0 12px; border-bottom: 1px solid #e5e7eb; padding-bottom: 6px; }
+  h3 { font-size: 13px; font-weight: 600; margin: 16px 0 6px; color: #57606a; text-transform: uppercase; letter-spacing: 0.04em; }
+
+  /* Diagram */
+  .diagram { width: 100%; overflow-x: auto; margin-bottom: 8px; }
+  svg { display: block; }
+
+  /* Fix table */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+  th { background: #f7f8fa; text-align: left; padding: 7px 10px; font-weight: 600; border: 1px solid #e5e7eb; }
+  td { padding: 7px 10px; border: 1px solid #e5e7eb; vertical-align: top; }
+  td:first-child { white-space: nowrap; font-weight: 600; color: #3b82d4; }
+  .tag { display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 3px; font-weight: 600; }
+  .tag-add { background: #d1fae5; color: #065f46; }
+  .tag-fix { background: #fef3c7; color: #92400e; }
+  .tag-done { background: #dbeafe; color: #1e40af; }
+  code { font-family: "Courier New", monospace; font-size: 12px; background: #f7f8fa; padding: 1px 4px; border-radius: 3px; border: 1px solid #e5e7eb; }
+  .note { background: #f7f8fa; border-left: 3px solid #3b82d4; padding: 10px 14px; font-size: 13px; color: #57606a; margin-top: 10px; }
+
+  footer { margin-top: 48px; padding-top: 14px; border-top: 1px solid #e5e7eb; text-align: center; font-size: 12px; color: #57606a; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <h1>Activity Diagram — Build-Time Pipeline</h1>
+  <p class="subtitle">AI Permission Supervisor · Team TINSY · IBM SkillBuild Fall 2026</p>
+
+  <h2>Build-Time Activity Diagram</h2>
+
+  <div class="diagram">
+  <svg xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:820px">
+    <defs>
+      <marker id="arr">
+        <path d="M0,0 L0,6 L8,3 z" fill="#57606a"></path>
+      </marker>
+      <marker id="arr-r">
+        <path d="M0,0 L0,6 L8,3 z" fill="#c0392b"></path>
+      </marker>
+      <marker id="arr-g">
+        <path d="M0,0 L0,6 L8,3 z" fill="#27ae60"></path>
+      </marker>
+    </defs>
+    <style>
+      text { font-family: -apple-system,"Segoe UI",system-ui,sans-serif; font-size: 12px; fill: #1f2328; }
+      .label { font-size: 10px; fill: #57606a; }
+      .node rect { stroke-width: 1.5; }
+      .start circle, .end circle { fill: #1f2328; }
+      .store { fill: #f7f8fa; stroke: #e5e7eb; }
+      .process { fill: #eef4ff; stroke: #3b82d4; }
+      .decision { fill: #fff8e1; stroke: #f59e0b; }
+      .terminal { fill: #d1fae5; stroke: #27ae60; }
+      .blocked { fill: #fee2e2; stroke: #c0392b; }
+      .held { fill: #fee2e2; stroke: #c0392b; }
+    </style>
+
+    
+    <circle cx="410" cy="28" r="12" fill="#1f2328"></circle>
+    <line x1="410" y1="40" x2="410" y2="62" stroke="#57606a" stroke-width="1.5" marker-end="url(#arr)"></line>
+
+    
+    <g class="node">
+      <rect x="310" y="62" width="200" height="44" rx="6" class="store"></rect>
+      <text x="410" y="80" text-anchor="middle" font-weight="600">audit_log.jsonl</text>
+      <text x="410" y="96" text-anchor="middle" class="label">(local, hash-chained)</text>
+    </g>
+    <line x1="410" y1="106" x2="410" y2="128" stroke="#57606a" stroke-width="1.5" marker-end="url(#arr)"></line>
+    <text x="420" y="121" class="label">async COS sync</text>
+
+    
+    <g class="node">
+      <rect x="310" y="128" width="200" height="44" rx="6" class="store"></rect>
+      <text x="410" y="146" text-anchor="middle" font-weight="600">ais-audit-log (COS)</text>
+      <text x="410" y="162" text-anchor="middle" class="label">IBM Cloud Object Storage</text>
+    </g>
+    <line x1="410" y1="172" x2="410" y2="194" stroke="#57606a" stroke-width="1.5" marker-end="url(#arr)"></line>
+
+    
+    <g class="node">
+      <rect x="290" y="194" width="240" height="44" rx="6" class="process"></rect>
+      <text x="410" y="212" text-anchor="middle" font-weight="600">export_to_dataset.py</text>
+      <text x="410" y="228" text-anchor="middle" class="label">upload raw export → ais-dataset-store</text>
+    </g>
+    <line x1="410" y1="238" x2="410" y2="260" stroke="#57606a" stroke-width="1.5" marker-end="url(#arr)"></line>
+
+    
+    <polygon points="410,260 490,290 410,320 330,290" fill="#fff8e1" stroke="#f59e0b" stroke-width="1.5"></polygon>
+    <text x="410" y="286" text-anchor="middle" font-weight="600">Split</text>
+    <text x="410" y="300" text-anchor="middle" class="label">by hash(tool_use_id)</text>
+
+    
+    <line x1="330" y1="290" x2="160" y2="290" stroke="#c0392b" stroke-width="1.5" marker-end="url(#arr-r)"></line>
+    <text x="240" y="283" text-anchor="middle" class="label" fill="#c0392b">20%</text>
+    <g class="node">
+      <rect x="60" y="268" width="200" height="44" rx="6" class="held"></rect>
+      <text x="160" y="286" text-anchor="middle" font-weight="600" fill="#c0392b">held_out_test_set.jsonl</text>
+      <text x="160" y="302" text-anchor="middle" class="label" fill="#c0392b">NEVER used for training</text>
+    </g>
+
+    
+    <line x1="490" y1="290" x2="660" y2="290" stroke="#57606a" stroke-width="1.5" marker-end="url(#arr)"></line>
+    <text x="575" y="283" text-anchor="middle" class="label">for_review_only</text>
+    <g class="node">
+      <rect x="560" y="268" width="200" height="44" rx="6" class="store"></rect>
+      <text x="660" y="286" text-anchor="middle" font-weight="600">review_only.jsonl</text>
+      <text x="660" y="302" text-anchor="middle" class="label">manual review only</text>
+    </g>
+
+    
+    <line x1="410" y1="320" x2="410" y2="342" stroke="#57606a" stroke-width="1.5" marker-end="url(#arr)"></line>
+    <text x="420" y="336" class="label">80%</text>
+    <g class="node">
+      <rect x="310" y="342" width="200" height="44" rx="6" class="store"></rect>
+      <text x="410" y="360" text-anchor="middle" font-weight="600">training_set.jsonl</text>
+      <text x="410" y="376" text-anchor="middle" class="label">human-labeled examples</text>
+    </g>
+    <line x1="410" y1="386" x2="410" y2="408" stroke="#57606a" stroke-width="1.5" marker-end="url(#arr)"></line>
+
+    
+    <g class="node">
+      <rect x="290" y="408" width="240" height="44" rx="6" class="process"></rect>
+      <text x="410" y="426" text-anchor="middle" font-weight="600">optimize.py optimize</text>
+      <text x="410" y="442" text-anchor="middle" class="label">BootstrapFewShot on first 50 examples</text>
+    </g>
+    <line x1="410" y1="452" x2="410" y2="474" stroke="#57606a" stroke-width="1.5" marker-end="url(#arr)"></line>
+
+    
+    <g class="node">
+      <rect x="310" y="474" width="200" height="44" rx="6" class="store"></rect>
+      <text x="410" y="492" text-anchor="middle" font-weight="600">compiled_program.json</text>
+      <text x="410" y="508" text-anchor="middle" class="label">optimized few-shot prompt</text>
+    </g>
+    <line x1="410" y1="518" x2="410" y2="540" stroke="#57606a" stroke-width="1.5" marker-end="url(#arr)"></line>
+
+    
+    <g class="node">
+      <rect x="275" y="540" width="270" height="50" rx="6" class="process"></rect>
+      <text x="410" y="558" text-anchor="middle" font-weight="600">optimize.py label</text>
+      <text x="410" y="572" text-anchor="middle" class="label">meta-llama/llama-3-3-70b-instruct</text>
+      <text x="410" y="584" text-anchor="middle" class="label">via watsonx.ai</text>
+    </g>
+    <line x1="410" y1="590" x2="410" y2="612" stroke="#57606a" stroke-width="1.5" marker-end="url(#arr)"></line>
+
+    
+    <g class="node">
+      <rect x="290" y="612" width="240" height="44" rx="6" class="store"></rect>
+      <text x="410" y="630" text-anchor="middle" font-weight="600">teacher_labeled.jsonl</text>
+      <text x="410" y="646" text-anchor="middle" class="label">action + reason + confidence</text>
+    </g>
+    <line x1="410" y1="656" x2="410" y2="678" stroke="#57606a" stroke-width="1.5" marker-end="url(#arr)"></line>
+
+    
+    <g class="node">
+      <rect x="275" y="678" width="270" height="44" rx="6" class="process"></rect>
+      <text x="410" y="696" text-anchor="middle" font-weight="600">Fine-tune Student Model</text>
+      <text x="410" y="712" text-anchor="middle" class="label">1–3B generative · watsonx.ai tuning job</text>
+    </g>
+    <line x1="410" y1="722" x2="410" y2="744" stroke="#57606a" stroke-width="1.5" marker-end="url(#arr)"></line>
+
+    
+    <g class="node">
+      <rect x="310" y="744" width="200" height="36" rx="6" class="process"></rect>
+      <text x="410" y="758" text-anchor="middle" font-weight="600">Quantize (4-bit)</text>
+      <text x="410" y="774" text-anchor="middle" class="label">GGUF / AWQ</text>
+    </g>
+    
+    <line x1="510" y1="762" x2="570" y2="762" stroke="#57606a" stroke-width="1.5" marker-end="url(#arr)"></line>
+
+    
+    <g class="node">
+      <rect x="570" y="740" width="200" height="44" rx="6" class="process"></rect>
+      <text x="670" y="758" text-anchor="middle" font-weight="600">Evaluation Harness</text>
+      <text x="670" y="774" text-anchor="middle" class="label">held-out set + policy test cases</text>
+    </g>
+    
+    <line x1="160" y1="312" x2="160" y2="762" stroke="#c0392b" stroke-width="1"></line>
+    <line x1="160" y1="762" x2="570" y2="762" stroke="#c0392b" stroke-width="1" marker-end="url(#arr-r)"></line>
+
+    <line x1="670" y1="784" x2="670" y2="806" stroke="#57606a" stroke-width="1.5" marker-end="url(#arr)"></line>
+
+    
+    <polygon points="670,806 740,830 670,854 600,830" fill="#fff8e1" stroke="#f59e0b" stroke-width="1.5"></polygon>
+    <text x="670" y="827" text-anchor="middle" font-weight="600" font-size="11">Gate</text>
+    <text x="670" y="840" text-anchor="middle" class="label">accuracy ≥ threshold?</text>
+
+    
+    <line x1="600" y1="830" x2="530" y2="830" stroke="#c0392b" stroke-width="1.5" marker-end="url(#arr-r)"></line>
+    <text x="562" y="823" text-anchor="middle" class="label" fill="#c0392b">FAIL</text>
+    <g class="node">
+      <rect x="430" y="810" width="100" height="40" rx="6" class="blocked"></rect>
+      <text x="480" y="828" text-anchor="middle" font-size="11" fill="#c0392b">Back to</text>
+      <text x="480" y="842" text-anchor="middle" font-size="11" fill="#c0392b">optimize</text>
+    </g>
+
+    
+    <line x1="740" y1="830" x2="790" y2="830" stroke="#27ae60" stroke-width="1.5"></line>
+    <line x1="790" y1="830" x2="790" y2="670" stroke="#27ae60" stroke-width="1.5"></line>
+    <line x1="790" y1="670" x2="762" y2="670" stroke="#27ae60" stroke-width="1.5" marker-end="url(#arr-g)"></line>
+    <text x="795" y="755" class="label" fill="#27ae60" transform="rotate(90,795,755)">PASS → Registry</text>
+
+    
+    <g class="node">
+      <rect x="560" y="648" width="200" height="44" rx="6" class="terminal"></rect>
+      <text x="660" y="666" text-anchor="middle" font-weight="600">Model Registry</text>
+      <text x="660" y="682" text-anchor="middle" class="label">watsonx.ai deployment space</text>
+    </g>
+    <line x1="660" y1="648" x2="660" y2="590" stroke="#27ae60" stroke-width="1.5" marker-end="url(#arr-g)"></line>
+
+    
+    <g class="node">
+      <rect x="560" y="546" width="200" height="44" rx="6" class="terminal"></rect>
+      <text x="660" y="564" text-anchor="middle" font-weight="600">Distribute</text>
+      <text x="660" y="580" text-anchor="middle" class="label">supervisor version-check at startup</text>
+    </g>
+    <line x1="660" y1="546" x2="660" y2="500" stroke="#27ae60" stroke-width="1.5" marker-end="url(#arr-g)"></line>
+
+    
+    <g class="node">
+      <rect x="560" y="456" width="200" height="44" rx="6" class="terminal"></rect>
+      <text x="660" y="474" text-anchor="middle" font-weight="600">Student Model Live</text>
+      <text x="660" y="490" text-anchor="middle" class="label">ambiguous path after Rule Engine</text>
+    </g>
+
+    
+    <circle cx="660" cy="430" r="10" fill="#27ae60"></circle>
+    <circle cx="660" cy="430" r="6" fill="#ffffff"></circle>
+    <line x1="660" y1="456" x2="660" y2="440" stroke="#27ae60" stroke-width="1.5" marker-end="url(#arr-g)"></line>
+
+  </svg>
+  </div>
+
+  <h2>ERD Fixes Required (4 items)</h2>
+  <p style="font-size:13px;color:#57606a;margin-bottom:12px">These changes must be applied to the source file for <strong>AI_Permission_Supervisor_System_Bob_ERD.pdf</strong> before the next milestone.</p>
+  <table>
+    <tr><th style="width:40px">#</th><th style="width:120px">Entity</th><th>Change</th><th style="width:80px">Type</th></tr>
+    <tr>
+      <td>1</td>
+      <td>ERD — Build-time subject area</td>
+      <td>Add a new <strong>Build-time subject area</strong> swim lane containing these entities: <code>TrainingRecord</code>, <code>TeacherLabel</code>, <code>DSPyRun</code>, <code>ModelVersion</code>, <code>IndexVersion</code>, <code>TestCase</code>, <code>EvaluationRun</code>. Connect <code>AuditLogEntry</code> → <code>TrainingRecord</code> (one-to-many, via COS sync). Connect <code>ModelVersion</code> → <code>Decision.model_version_id</code> (FK).</td>
+      <td><span class="tag tag-add">ADD</span></td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>AuditLogEntry</td>
+      <td>Add fields: <code>prev_entry_hash: VARCHAR(64)</code>, <code>entry_hash: VARCHAR(64)</code>. Add note: <em>entry_hash = sha256(canonical_json(entry_id + written_at + prev_entry_hash + snapshot)) — sorted keys, no whitespace</em>.</td>
+      <td><span class="tag tag-fix">FIX</span></td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>HumanFeedback</td>
+      <td>Add fields: <code>sent_to_pipeline: BOOLEAN NOT NULL DEFAULT FALSE</code>, <code>for_review_only: BOOLEAN NOT NULL DEFAULT FALSE</code>. Add constraint note: <em>if for_review_only=TRUE then sent_to_pipeline must be FALSE</em>.</td>
+      <td><span class="tag tag-fix">FIX</span></td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td>Decision</td>
+      <td>Add fields: <code>model_version_id: FK → ModelVersion</code> (nullable — null when decided_by=rule/hard_rail), <code>index_version_id: FK → IndexVersion</code> (nullable), <code>confidence: FLOAT</code> (nullable, 0.0–1.0).</td>
+      <td><span class="tag tag-fix">FIX</span></td>
+    </tr>
+  </table>
+
+  <h2>Data Schema Fixes Required (same 4 items)</h2>
+  <p style="font-size:13px;color:#57606a;margin-bottom:12px">Apply to source file for <strong>AI_Permission_Supervisor_System_Bob_DataSchema.pdf</strong>.</p>
+  <table>
+    <tr><th style="width:40px">#</th><th style="width:160px">Section</th><th>Change</th><th style="width:80px">Type</th></tr>
+    <tr>
+      <td>1</td>
+      <td>Build-time entities</td>
+      <td>Add a <strong>Build-Time Entities</strong> section with data dictionaries for: <code>TrainingRecord</code>, <code>TeacherLabel</code>, <code>ModelVersion</code>, <code>IndexVersion</code>, <code>EvaluationRun</code>. These live on IBM Cloud / watsonx.ai — note this in the section header.</td>
+      <td><span class="tag tag-add">ADD</span></td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>AuditLogEntry</td>
+      <td>Add rows for <code>prev_entry_hash</code> and <code>entry_hash</code> (both VARCHAR 64, SHA-256 hex). Add a note row: <em>Serialization: canonical JSON — keys sorted alphabetically, no extra whitespace, UTF-8. Hash covers: entry_id, written_at, prev_entry_hash, snapshot.</em></td>
+      <td><span class="tag tag-fix">FIX</span></td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>HumanFeedback</td>
+      <td>Add rows for <code>sent_to_pipeline</code> (BOOLEAN, default FALSE — true = used as training signal) and <code>for_review_only</code> (BOOLEAN, default FALSE — true = hard-rail record, never used for training). Add business rule: <em>for_review_only=TRUE implies sent_to_pipeline=FALSE.</em></td>
+      <td><span class="tag tag-fix">FIX</span></td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td>Decision</td>
+      <td>Add rows for <code>model_version_id</code> (FK, nullable — null when decided_by ∈ {rule, hard_rail}), <code>index_version_id</code> (FK, nullable), <code>confidence</code> (FLOAT 0.0–1.0, nullable — populated by student model, null for rule-engine decisions).</td>
+      <td><span class="tag tag-fix">FIX</span></td>
+    </tr>
+  </table>
+
+  <div class="note">
+    <strong>Note on diagram export:</strong> The Activity Diagram above should be saved as <code>AI_Permission_Supervisor_System_Bob_BuildTime_Activity.pdf</code> and added to the Diagram Inventory table in the plan. The ERD and Data Schema fixes require editing the source files in the original diagram tool (Lucidchart / draw.io / etc.) and re-exporting the PDFs.
+  </div>
+
+  <footer>Made with IBM Bob</footer>
+</div>
+</body>
+</html>

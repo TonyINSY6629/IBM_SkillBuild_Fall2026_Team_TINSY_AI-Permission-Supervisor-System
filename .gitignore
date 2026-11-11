@@ -1,0 +1,26 @@
+# Credentials — never commit
+ais-credentials.json
+*-credentials.json
+*.apikey
+.env
+.env.*
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Dataset splits (contain real audit data - generated, not committed)
+dataset/
+# config/ is committed (exclude_tool_use_ids.txt - no secrets)
+!config/

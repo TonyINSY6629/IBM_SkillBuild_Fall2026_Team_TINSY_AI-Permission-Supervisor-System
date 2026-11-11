@@ -1,0 +1,192 @@
+# AI Permission Supervisor — Tool-Call Taxonomy
+# Version: draft-2026-11-04-v1
+#
+# Each category classifies a tool-call by what it does, not which tool was used.
+# The same tool (e.g. execute_command) can map to different categories depending
+# on its input (e.g. a read-only dir listing vs. a network request).
+#
+# Fields:
+#   id             — machine identifier used in policy.yaml and PermissionRequest
+#   description    — human-readable summary of what this category covers
+#   example_tools  — Bob tool names that commonly produce this category
+#   example_patterns — command substrings / path patterns that indicate this category
+#   default_label  — Safe | Neutral | Warning
+#                    Safe:    auto-allow, no human prompt
+#                    Neutral: auto-allow, passive log (same outcome, finer audit granularity)
+#                    Warning: escalate-or-deny per policy
+#
+# NOTE: The Normalizer maps a raw PreToolUse payload to exactly ONE category.
+# If no category matches, the Normalizer assigns "unclassified" and the Policy
+# Engine escalates (fail-escalate for unknowns, not fail-allow).
+
+categories:
+
+  - id: file_read
+    description: >
+      Read-only access to files or directories inside the agent workspace.
+      Includes listing directory contents, reading file text, searching file
+      contents, and symbol lookups. Does not modify any file.
+    example_tools:
+      - read_file
+      - list_files
+      - glob
+      - grep
+      - GetSymbolsOverview
+      - FindSymbol
+      - FindReferencingSymbols
+      - office_read
+    example_patterns:
+      - "cat "        # shell read commands
+      - "type "
+      - "Get-Content"
+      - "dir "        # directory listing
+      - "ls "
+      - "Get-ChildItem"
+    default_label: Safe
+
+  - id: file_write
+    description: >
+      Creates, overwrites, or modifies files inside the agent workspace.
+      Includes new file creation, full rewrites, targeted diffs, and line
+      insertions. Target path must be inside workspace root; if not, the
+      call is reclassified as workspace_outside_write.
+    example_tools:
+      - write_file
+      - apply_diff
+      - search_and_replace
+      - insert_content
+      - office_edit
+    example_patterns:
+      - "Set-Content"   # shell write commands
+      - "Out-File"
+      - "New-Item"
+      - "echo .* >"
+      - "tee "
+    default_label: Neutral
+
+  - id: shell_exec
+    description: >
+      Executes an arbitrary shell command. This is the broadest category —
+      a shell command can read, write, spawn processes, or make network calls.
+      The Normalizer inspects the command string to reclassify into a more
+      specific category (network_request, secret_access, etc.) where possible.
+      Anything that cannot be reclassified stays here.
+    example_tools:
+      - execute_command
+    example_patterns:
+      - "*"   # catch-all for execute_command not matched by narrower patterns
+    default_label: Warning
+
+  - id: network_request
+    description: >
+      Initiates an outbound network connection: HTTP/HTTPS fetch, DNS lookup,
+      socket open, SSH, or any command that sends data off the local machine.
+      Includes package manager installs that pull from the internet.
+    example_tools:
+      - execute_command  # when command matches network patterns
+    example_patterns:
+      - "curl "
+      - "wget "
+      - "Invoke-WebRequest"
+      - "Invoke-RestMethod"
+      - "pip install"
+      - "npm install"
+      - "pip3 install"
+      - "yarn add"
+      - "git clone"
+      - "git fetch"
+      - "git pull"
+      - "git push"
+      - "ssh "
+      - "scp "
+      - "sftp "
+      - "nslookup "
+      - "ping "
+      - "tracert "
+      - "traceroute "
+    default_label: Warning
+
+  - id: secret_access
+    description: >
+      Reads or writes credentials, API keys, tokens, certificates, or any
+      file / environment variable commonly used to store secrets. Includes
+      reads of .env files, credential stores, key files, and shell history.
+    example_tools:
+      - read_file        # when path matches secret patterns
+      - execute_command  # when command reads env vars or credential files
+    example_patterns:
+      - ".env"
+      - ".env.*"
+      - "*.pem"
+      - "*.key"
+      - "*.pfx"
+      - "*.p12"
+      - "id_rsa"
+      - "id_ed25519"
+      - "*.ppk"
+      - "$env:*_KEY"
+      - "$env:*_TOKEN"
+      - "$env:*_SECRET"
+      - "$env:*_PASSWORD"
+      - "~/.aws/credentials"
+      - "~/.netrc"
+      - "~/.git-credentials"
+      - "HUGGING_FACE_HUB_TOKEN"    # common AI-tool secrets
+      - "OPENAI_API_KEY"
+    default_label: Warning
+
+  - id: supervisor_path_access
+    description: >
+      Any read or write targeting the Supervisor's own files, including the
+      audit log, policy files, taxonomy, hook client scripts, and the probe
+      log. This category exists solely to support the hard-rail deny rule —
+      the agent must never be able to read or modify the Supervisor's own
+      state or configuration.
+    example_tools:
+      - read_file
+      - write_file
+      - apply_diff
+      - search_and_replace
+      - insert_content
+      - execute_command
+    example_patterns:
+      - "~/supervisor_probe/**"
+      - "supervisor/audit_log*"
+      - "hook_client/main.py"
+      - "hook_client/probe.py"
+      - "~/.bob/settings/settings.json"   # hook registration file
+    default_label: Warning  # always overridden by hard-rail deny in policy.yaml
+
+  - id: workspace_outside_write
+    description: >
+      A write operation whose target path resolves to a location outside all
+      known workspace roots. This includes absolute paths to system directories,
+      the user home directory (outside workspace), temp directories, and any
+      path that escapes the workspace via path traversal (e.g. "../../").
+    example_tools:
+      - write_file
+      - apply_diff
+      - search_and_replace
+      - insert_content
+      - execute_command
+    example_patterns:
+      - "C:\\Windows\\"
+      - "C:\\Program Files\\"
+      - "/etc/"
+      - "/usr/"
+      - "/bin/"
+      - "/sbin/"
+      - "../../"      # path traversal
+      - "..\\..\\"
+      - "$env:USERPROFILE\\"   # home dir writes outside workspace
+    default_label: Warning  # always overridden by hard-rail deny in policy.yaml
+
+  - id: unclassified
+    description: >
+      Catch-all for any tool call the Normalizer cannot map to a known category.
+      This should be rare in steady state. Every unclassified call is escalated
+      and logged for review so it can be assigned a proper category in a future
+      policy update.
+    example_tools: []
+    example_patterns: []
+    default_label: Warning
