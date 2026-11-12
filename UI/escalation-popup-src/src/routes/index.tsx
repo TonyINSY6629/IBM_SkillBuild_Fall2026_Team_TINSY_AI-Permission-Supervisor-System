@@ -16,6 +16,8 @@ export const Route = createFileRoute("/")({
       { name: "twitter:card", content: "summary" },
     ],
   }),
+  // NEW: Bug 5 - build this page only in the browser (the server can't see ?id=, so it built the demo page)
+  ssr: false,
   component: Index,
 });
 
@@ -466,6 +468,8 @@ function Index() {
   const [liveEsc, setLiveEsc] = useState<Esc | null>(null);
   const [liveTimeout, setLiveTimeout] = useState(120);
   const [liveError, setLiveError] = useState<string | null>(null);
+  // NEW: Bug 5 - moved up from the demo section; React needs every useState before any "return"
+  const [i, setI] = useState(0);
 
   useEffect(() => {
     if (!liveParams) return;
@@ -518,7 +522,6 @@ function Index() {
   }
 
   // --- Demo mode render ---
-  const [i, setI] = useState(0);
   return (
     <main className="min-h-screen bg-ide px-6 py-10 font-sans text-ide-text">
       <div className="mx-auto max-w-5xl">
