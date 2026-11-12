@@ -150,6 +150,7 @@ class PolicyEngine:
                 "escalation_id": escalation_id,
                 "outcome": result.source,           # human_allow | human_deny | timeout
                 "final_action": result.action,      # allow | deny
+                "note": result.note,                # NEW: Bug 3 - the human's note from the pop-up ("" if none)
                 "label": verdict.label,
                 "category": req.category,
                 "policy_version": verdict.policy_version,

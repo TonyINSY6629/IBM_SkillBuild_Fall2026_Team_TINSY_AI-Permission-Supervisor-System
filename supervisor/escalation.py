@@ -82,6 +82,9 @@ class EscalationResult:
     escalation_id: str
     action: str          # "allow" | "deny"
     source: str          # "human_allow" | "human_deny" | "timeout"
+    # NEW: Bug 3 - carry the human's note so it reaches the audit log
+    note: str = ""
+    # NEW END
     decided_at: float = field(default_factory=time.time)
 
 
@@ -224,6 +227,7 @@ class EscalationManager:
             escalation_id=escalation_id,
             action="allow" if approved else "deny",
             source=source,
+            note=note[:500],  # NEW: Bug 3 - pass the note along (max 500 characters)
         )
         pending._event.set()
         log.info(
