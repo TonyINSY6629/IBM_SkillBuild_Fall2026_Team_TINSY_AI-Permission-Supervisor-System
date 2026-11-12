@@ -43,7 +43,12 @@ type Esc = {
   model_version_id: string | null;
 };
 
-type View = "pending" | "allowed" | "denied" | "timeout" | "failclosed";
+//NEW BELOW!!
+type View = "pending" | "allowed" | "denied" | "timeout" | "failclosed" | "resolved";
+//NEW ABOVE!!
+
+
+
 
 // ---------------------------------------------------------------------------
 // Demo samples (used when no ?id= query param is present)
@@ -291,6 +296,9 @@ function Popup({
     const m = {
       allowed: ["Allowed", "Bob is running the tool. Your decision was logged.", "text-safe"],
       denied: ["Denied", "Bob was told why and will try another way. Logged.", "text-danger"],
+      //NEW!!
+      resolved: ["Already decided", "This request was already answered or timed out. Check Bob for the result.", "text-ide-dim"],
+      //NEW!!
       timeout: ["Denied automatically", "No answer in time — blocked for safety.", "text-warn"],
       failclosed: [
         "Blocked for safety",
@@ -479,11 +487,13 @@ function Index() {
   // --- Live mode render ---
   if (liveParams) {
     if (liveError) {
-      const forced: View = liveError === "resolved" ? "allowed" : "failclosed";
+
+      //NEW, allowed changed to resolved and the Popup below now shows the real escalation id
+      const forced: View = liveError === "resolved" ? "resolved" : "failclosed";
       return (
         <main className="flex min-h-screen items-center justify-center bg-ide font-sans">
           <Popup
-            esc={SAMPLES[0]!}
+            esc={{ ...SAMPLES[0]!, tool_use_id: liveParams.id }}
             forced={forced}
             scale={scale}
             liveParams={null}
