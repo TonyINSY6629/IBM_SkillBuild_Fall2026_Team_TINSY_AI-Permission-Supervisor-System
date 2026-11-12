@@ -180,13 +180,17 @@ class EscalationManager:
         )
 
         # Block until the human responds or the timeout fires.
-        responded = pending._event.wait(timeout=self._timeout)
+        pending._event.wait(timeout=self._timeout)
 
+        # NEW: Bug 4 - read the answer inside the same lock, so the pop-up and the
+        # supervisor always agree (a click that got "ok" is always the one used)
         with self._lock:
             self._pending.pop(escalation_id, None)
+            result = pending._result
 
-        if responded and pending._result is not None:
-            return pending._result
+        if result is not None:
+            return result
+        # NEW END
 
         # Timeout — deny.
         log.warning(
@@ -211,25 +215,25 @@ class EscalationManager:
         Returns True if the escalation was found and resolved,
         False if it was not found (already timed out or already resolved).
         """
+                # NEW: Bug 4 - check and save the answer inside the lock, so only the FIRST answer counts
+        source = "human_allow" if approved else "human_deny"
         with self._lock:
             pending = self._pending.get(escalation_id)
-
-        if pending is None:
-            log.warning(
-                "escalation: resolve called for unknown id=%s (timed out?)",
-                escalation_id,
+            if pending is None or pending._result is not None:
+                log.warning(
+                    "escalation: resolve ignored for id=%s (unknown, timed out, or already answered)",
+                    escalation_id,
+                )
+                return False
+            pending.note = note[:500]
+            pending._result = EscalationResult(
+                escalation_id=escalation_id,
+                action="allow" if approved else "deny",
+                source=source,
+                note=note[:500],  # NEW: Bug 3 - pass the note along (max 500 characters)
             )
-            return False
-
-        source = "human_allow" if approved else "human_deny"
-        pending.note = note[:500]
-        pending._result = EscalationResult(
-            escalation_id=escalation_id,
-            action="allow" if approved else "deny",
-            source=source,
-            note=note[:500],  # NEW: Bug 3 - pass the note along (max 500 characters)
-        )
-        pending._event.set()
+            pending._event.set()
+        # NEW END
         log.info(
             "escalation: id=%s resolved source=%s action=%s",
             escalation_id, source, pending._result.action,
