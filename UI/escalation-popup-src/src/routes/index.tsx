@@ -452,11 +452,12 @@ function Index() {
   const liveParams = getLiveParams();
 
   // scale = 10% of the user's actual screen resolution
+    //NEW: removed the extra "/ 10" so the pop-up is 607 x 341 on a 1920 screen (was 61 x 34)
   const [scale, setScale] = useState(() =>
-    typeof window !== "undefined" ? window.screen.width / 1920 / 10 : 607 / 1920 / 10,
+    typeof window !== "undefined" ? window.screen.width / 1920 : 1,
   );
   useEffect(() => {
-    const update = () => setScale(window.screen.width / 1920 / 10);
+    const update = () => setScale(window.screen.width / 1920);
     window.addEventListener("resize", update);
     return () => window.removeEventListener("resize", update);
   }, []);
