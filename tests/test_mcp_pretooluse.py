@@ -221,8 +221,8 @@ class TestMcpVariousToolNames:
 
 def test_mcp_open_item_documented():
     """
-    This test always passes. It exists to document the open item and the
-    manual verification procedure in the test suite output.
+    This test is always SKIPPED (not passed). It exists to document the open item
+    and the manual verification procedure in the test suite output.
 
     OPEN ITEM: Confirm PreToolUse fires for real MCP tool calls in Bob.
     STATUS:    Unresolved — no MCP calls were logged during Step 1 probe.
@@ -236,4 +236,5 @@ def test_mcp_open_item_documented():
       4b. If not found → PreToolUse is skipped for MCP; Gateway is required.
           Update plan open item, begin Gateway implementation.
     """
-    assert True, "Open item documented — see docstring for manual steps."
+       # NEW: Bug 14 - skip instead of "assert True", so an untested open item never counts as a pass
+    pytest.skip("OPEN ITEM: verify PreToolUse fires for MCP tools in Bob (manual steps in this test's docstring)")
