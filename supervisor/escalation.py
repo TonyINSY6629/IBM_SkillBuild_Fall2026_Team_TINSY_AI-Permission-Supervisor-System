@@ -301,8 +301,9 @@ async def escalation_page(escalation_id: str) -> HTMLResponse:
         )
 
     elapsed = int(time.time() - pending.created_at)
-    remaining = max(0, int(ESCALATION_TIMEOUT_SECONDS) - elapsed)
-
+    # NEW: Bug 11 - use this request's own timeout (same as the /data endpoint), not the global default
+    remaining = max(0, int(pending.timeout) - elapsed)
+    
     return HTMLResponse(
         _render_page(
             escalation_id,
