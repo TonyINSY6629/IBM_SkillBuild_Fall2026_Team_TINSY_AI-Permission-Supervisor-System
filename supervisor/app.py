@@ -290,8 +290,13 @@ async def decide(request: Request) -> JSONResponse:
         # SessionStart, PostToolUse — nothing to do, just allow.
         return JSONResponse(status_code=200, content={"action": "allow", "reason": ""})
 
+
+
     # --- Fail-closed: no policy engine means no decisions ---
     # Refresh the engine in case policy was reloaded since startup.
+
+    
+    global _policy_engine  # NEW: Bug 12 - lets us save the rebuilt engine below
     engine = _policy_engine
     if policy_store.rule_engine and (
         engine is None
@@ -300,6 +305,8 @@ async def decide(request: Request) -> JSONResponse:
         engine = PolicyEngine(
             policy_store.rule_engine, _default_audit_log, _escalation_manager
         )
+        # NEW: Bug 12 - save it so the next requests reuse it instead of rebuilding every time
+        _policy_engine = engine
 
     if engine is None:
         log.error("PolicyEngine not available — denying tool call.")
