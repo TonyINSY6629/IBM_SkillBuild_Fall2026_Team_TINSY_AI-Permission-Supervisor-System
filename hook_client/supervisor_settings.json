@@ -8,7 +8,8 @@
     "  escalation_timeout (120 s) < HOOK_DEADLINE_SECONDS (130 s) < timeout here (150 s)",
     "",
     "Windows path for main.py: adjust if your project root differs.",
-    "On Windows, use the full path to python.exe if python3 is not on PATH.",
+    "NEW (Bug 6): commands use 'py -3' (the Windows Python launcher). 'python3' may not exist on Windows",
+    "or may open the Microsoft Store, and a hook that fails to start does NOT block the tool call.",
     "",
     "The probe hook entries in probe_settings.json can be REMOVED once",
     "you switch to this settings file — the Supervisor service logs everything."
@@ -20,7 +21,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"C:/Education/FORDHAM/Jobs/IBM/IBM SkillBuild Fall2026/Project/hook_client/main.py\"",
+            "command": "py -3 \"C:/Education/FORDHAM/Jobs/IBM/IBM SkillBuild Fall2026/Project/hook_client/main.py\"",
             "timeout": 150
           }
         ]
@@ -31,7 +32,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"C:/Education/FORDHAM/Jobs/IBM/IBM SkillBuild Fall2026/Project/hook_client/main.py\"",
+            "command": "py -3 \"C:/Education/FORDHAM/Jobs/IBM/IBM SkillBuild Fall2026/Project/hook_client/main.py\"",
             "timeout": 10
           }
         ]
@@ -43,7 +44,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"C:/Education/FORDHAM/Jobs/IBM/IBM SkillBuild Fall2026/Project/hook_client/main.py\"",
+            "command": "py -3 \"C:/Education/FORDHAM/Jobs/IBM/IBM SkillBuild Fall2026/Project/hook_client/main.py\"",
             "timeout": 10
           }
         ]
@@ -54,7 +55,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"C:/Education/FORDHAM/Jobs/IBM/IBM SkillBuild Fall2026/Project/hook_client/main.py\"",
+            "command": "py -3 \"C:/Education/FORDHAM/Jobs/IBM/IBM SkillBuild Fall2026/Project/hook_client/main.py\"",
             "timeout": 10
           }
         ]
