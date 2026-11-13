@@ -156,8 +156,8 @@ app.include_router(escalation_router)
 # Let the React pop-up (local dev server or published Lovable URL) call the
 # /escalation endpoints. Extra origins: ESCALATION_POPUP_ORIGINS="https://a,https://b".
 # NEW: Bug 9 - no longer trusts EVERY *.lovable.app site (anyone's Lovable app).
-# To use the published pop-up, add its exact address, e.g.
-# ESCALATION_POPUP_ORIGINS="https://your-popup-name.lovable.app"
+# Team decision (Nov 13): the pop-up runs locally only (npm run dev), so any
+# localhost / 127.0.0.1 port is allowed below; nothing on the internet is.
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 
 _popup_origins = [
@@ -176,6 +176,8 @@ app.add_middleware(
     CORSMiddleware,
     **_pna,
     allow_origins=_popup_origins,
+    # NEW: Bug 9 follow-up - accept the local pop-up on any port (npm run dev may use 8081, 5173, ...)
+    allow_origin_regex=r"http://(localhost|127\.0\.0\.1):\d+",
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["Content-Type"],
 )
