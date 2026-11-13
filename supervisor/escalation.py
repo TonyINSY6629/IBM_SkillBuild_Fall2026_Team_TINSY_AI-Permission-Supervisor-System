@@ -40,6 +40,9 @@ Public API:
 
 from __future__ import annotations
 
+# NEW: Bug 7 - used to escape text before putting it into the backup HTML page
+import html
+# NEW END
 import logging
 import os
 import threading
@@ -365,6 +368,13 @@ def _render_page(
     reason: str,
     remaining: int = 0,
 ) -> str:
+# NEW: Bug 7 - escape every value before it goes into the HTML, so text like
+    # <script> is shown as text instead of being run by the browser
+    escalation_id = html.escape(escalation_id)
+    tool_name = html.escape(tool_name)
+    category = html.escape(category)
+    reason = html.escape(reason)
+    # NEW END
     if resolved:
         body = f"""
         <h1 style="color:#888">Escalation Resolved</h1>
