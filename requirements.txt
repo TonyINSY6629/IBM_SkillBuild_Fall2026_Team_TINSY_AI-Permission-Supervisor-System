@@ -18,3 +18,5 @@ ibm-watsonx-ai>=1.1.0
 pytest>=8.0.0
 pytest-asyncio>=0.23.0
 httpx>=0.27.0          # test client for FastAPI
+# NEW: Bug 18 - newer Starlette's TestClient needs httpx2 (tests fail to load without it)
+httpx2
