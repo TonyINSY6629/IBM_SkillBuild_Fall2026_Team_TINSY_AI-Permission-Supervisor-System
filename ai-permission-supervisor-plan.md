@@ -143,7 +143,9 @@ append the raw payload to a local file and exit 0. Use Bob normally for a day. T
 
 1. Real `tool_name` values and `tool_input` shapes — the Normalizer depends on these
 2. Whether `PreToolUse` fires before or after Bob's own approval prompt
-3. Whether the stderr reason from `exit 2` reaches the model (unconfirmed — see Open Items)
+<!-- NEW: Bug 15 - confirmed in Step 4 testing; this line still said "unconfirmed" -->
+3. Whether the stderr reason from `exit 2` reaches the model (confirmed in Step 4 testing — see Open Items)
+<!-- NEW END -->
 4. Whether a hook can hold open (long timeout) without Bob misbehaving
 5. **Whether `PreToolUse` fires for MCP tool calls.** If yes, the hook already covers MCP
    in Bob and the Gateway becomes optional for the MVP.
