@@ -73,6 +73,9 @@ SUPERVISOR_BASE_URL: str = os.environ.get(
 # opens  {POPUP_URL}/?id=<escalation_id>&api=<SUPERVISOR_URL>  when it escalates.
 # Use the local dev server (bun run dev → http://localhost:8080) or the published
 # Lovable URL. Set ESCALATION_POPUP_URL="" to disable and fall back to the HTML page.
+# NEW: Bug 8 - the default (localhost:8080) only works if the pop-up app is running:
+#   cd UI/escalation-popup-src; npm run dev
+# If it isn't, use the "Backup page" link printed in the supervisor terminal.
 POPUP_URL: str = os.environ.get("ESCALATION_POPUP_URL", "http://localhost:8080")
 OPEN_BROWSER: bool = os.environ.get("ESCALATION_OPEN_BROWSER", "1") not in ("0", "false", "")
 
@@ -174,6 +177,8 @@ class EscalationManager:
             f"  Category: {category}\n"
             f"  Reason:   {reason}\n"
             f"  Approve / Deny at: {approval_url}\n"
+        # NEW: Bug 8 - always show the built-in backup page, which works even if the React pop-up isn't running
+            f"  Backup page:       {self._base_url}/escalation/{escalation_id}\n"
             f"  Timeout in {int(self._timeout)}s\n",
             flush=True,
         )
