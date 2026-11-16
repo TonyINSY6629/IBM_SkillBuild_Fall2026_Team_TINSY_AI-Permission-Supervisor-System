@@ -231,8 +231,11 @@ class TestBobAutoApprove:
     def test_enable_and_revert_round_trip(self):
         original = {"approval": {"forbiddenApprovalGroups": [], "allowed_permissions": ["mode"]}}
         enabled, record = bob_hooks.enable_auto_approve(original)
-        groups, star = bob_hooks.auto_approve_status(enabled)
-        assert {"read", "edit", "execute", "mode"} <= groups and star
+        groups, commands = bob_hooks.auto_approve_status(enabled)
+        assert {"read", "edit", "execute", "mode"} <= groups
+        # Bob matches by prefix and ignores "*": real prefixes must be listed.
+        assert {"git", "python", "npm"} <= commands and "*" not in commands
+        assert not {"del", "rm", "rmdir", "format"} & commands  # destructive ones stay on Bob's prompt
         assert bob_hooks.revert_auto_approve(enabled, record) == original
 
     def test_revert_keeps_what_the_user_already_had(self):
@@ -290,3 +293,45 @@ class TestPolicyCommand:
 
     def test_default_is_packaged_policy(self, env):
         assert paths.policy_dir() == paths.PACKAGED_POLICY_DIR
+
+
+class TestAutoApprovePrefixes:
+    def test_record_lists_added_prefixes_and_keeps_existing(self):
+        original = {"approval": {"allowedExecutors": [{"toolId": "execute_command", "approvedCommands": ["git", "make"]}]}}
+        enabled, record = bob_hooks.enable_auto_approve(original)
+        assert "git" not in record["added_commands"] and "npm" in record["added_commands"]
+        reverted = bob_hooks.revert_auto_approve(enabled, record)
+        assert reverted["approval"]["allowedExecutors"][0]["approvedCommands"] == ["git", "make"]
+
+    def test_legacy_wildcard_record_is_still_reverted(self):
+        settings = {"approval": {"allowed_permissions": ["read", "edit", "execute"],
+                                 "allowedExecutors": [{"toolId": "execute_command", "approvedCommands": ["*"]}]}}
+        legacy = {"groups": ["read", "edit", "execute"], "added_star": True, "created_executor": True,
+                  "created_keys": ["allowed_permissions", "allowedExecutors"], "created_approval": True}
+        assert bob_hooks.revert_auto_approve(settings, legacy) == {}
+
+    def test_doctor_warns_when_only_wildcard_is_listed(self, env, capsys):
+        settings_path, _ = env
+        settings = bob_hooks.add_supervisor_hooks({"approval": {
+            "allowed_permissions": ["read", "edit", "execute"],
+            "allowedExecutors": [{"toolId": "execute_command", "approvedCommands": ["*"]}]}}, CMD)
+        _write(settings_path, settings)
+        main(["doctor"])
+        assert "[WARN] Bob auto-approve" in capsys.readouterr().out
+
+    def test_install_adds_prefixes_to_a_wildcard_only_setup(self, env):
+        settings_path, _ = env
+        _write(settings_path, {"approval": {"allowed_permissions": ["read", "edit", "execute"],
+                                            "allowedExecutors": [{"toolId": "execute_command", "approvedCommands": ["*"]}]}})
+        assert main(["install", "--bob-auto-approve"]) == 0
+        commands = json.loads(settings_path.read_text(encoding="utf-8"))["approval"]["allowedExecutors"][0]["approvedCommands"]
+        assert commands[0] == "*" and "git" in commands
+
+
+class TestHints:
+    def test_hint_uses_python_m_when_aps_is_not_on_path(self, monkeypatch):
+        from ai_permission_supervisor.cli import main as cli_main
+        monkeypatch.setattr(cli_main.shutil, "which", lambda name: None)
+        assert cli_main._aps().endswith("-m ai_permission_supervisor.cli")
+        monkeypatch.setattr(cli_main.shutil, "which", lambda name: "/usr/bin/aps")
+        assert cli_main._aps() == "aps"

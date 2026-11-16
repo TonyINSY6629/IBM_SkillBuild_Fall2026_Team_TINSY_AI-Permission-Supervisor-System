@@ -208,19 +208,41 @@ def write_settings(path: Path, settings: dict[str, Any]) -> None:
 # ---------------------------------------------------------------------------
 
 AUTO_APPROVE_GROUPS: tuple[str, ...] = ("read", "edit", "execute")
-ALL_COMMANDS = "*"
+
+# Bob matches approvedCommands by PREFIX ("git" approves "git push ..."), and
+# does not document a wildcard: in testing, "*" alone left Bob prompting for
+# every unlisted command. So we list everyday command prefixes. Every command
+# still passes through the Supervisor's hook first; this only removes Bob's
+# second prompt. Destructive commands (del, rm, rmdir, format, ...) are left
+# off on purpose, so Bob keeps asking for those as an extra layer.
+COMMAND_PREFIXES: tuple[str, ...] = (
+    "git", "python", "py", "pip", "node", "npm", "npx", "yarn", "pnpm",
+    "pytest", "uvicorn", "dir", "ls", "cd", "pwd", "echo", "type", "cat",
+    "where", "which", "mkdir", "Get-", "Test-Path", "Select-String",
+)
+LEGACY_WILDCARD = "*"
 
 
-def auto_approve_status(settings: dict[str, Any]) -> tuple[set[str], bool]:
-    """(auto-approved groups, whether every shell command is approved)."""
-    approval = settings.get("approval") if isinstance(settings.get("approval"), dict) else {}
-    groups = {g for g in approval.get("allowed_permissions", []) if isinstance(g, str)}
-    star = any(
-        isinstance(e, dict) and e.get("toolId") == "execute_command"
-        and ALL_COMMANDS in (e.get("approvedCommands") or [])
-        for e in approval.get("allowedExecutors", [])
+def _execute_entry(approval: dict[str, Any]) -> dict[str, Any] | None:
+    return next(
+        (e for e in approval.get("allowedExecutors", []) or []
+         if isinstance(e, dict) and e.get("toolId") == "execute_command"),
+        None,
     )
-    return groups, star
+
+
+def auto_approve_status(settings: dict[str, Any]) -> tuple[set[str], set[str]]:
+    """(auto-approved groups, approved shell command prefixes)."""
+    approval = settings.get("approval") if isinstance(settings.get("approval"), dict) else {}
+    groups = {g for g in approval.get("allowed_permissions", []) or [] if isinstance(g, str)}
+    entry = _execute_entry(approval) or {}
+    commands = {c for c in entry.get("approvedCommands", []) or [] if isinstance(c, str)}
+    return groups, commands
+
+
+def has_effective_command_prefixes(commands: set[str]) -> bool:
+    """True if Bob would actually auto-approve everyday commands (not just "*")."""
+    return any(c != LEGACY_WILDCARD for c in commands)
 
 
 def forbidden_auto_approve_groups(settings: dict[str, Any]) -> list[str]:
@@ -243,17 +265,16 @@ def enable_auto_approve(settings: dict[str, Any]) -> tuple[dict[str, Any], dict[
     permissions.extend(added_groups)
 
     executors = approval.setdefault("allowedExecutors", [])
-    entry = next((e for e in executors if isinstance(e, dict) and e.get("toolId") == "execute_command"), None)
+    entry = _execute_entry(approval)
     created_entry = entry is None
     if created_entry:
         entry = {"toolId": "execute_command", "approvedCommands": []}
         executors.append(entry)
     commands = entry.setdefault("approvedCommands", [])
-    added_star = ALL_COMMANDS not in commands
-    if added_star:
-        commands.append(ALL_COMMANDS)
+    added_commands = [c for c in COMMAND_PREFIXES if c not in commands]
+    commands.extend(added_commands)
     return result, {
-        "groups": added_groups, "added_star": added_star, "created_executor": created_entry,
+        "groups": added_groups, "added_commands": added_commands, "created_executor": created_entry,
         "created_keys": created_keys, "created_approval": created_approval,
     }
 
@@ -272,8 +293,11 @@ def revert_auto_approve(settings: dict[str, Any], record: dict[str, Any]) -> dic
         kept = []
         for e in executors:
             if isinstance(e, dict) and e.get("toolId") == "execute_command":
-                if record.get("added_star"):
-                    e = {**e, "approvedCommands": [c for c in e.get("approvedCommands", []) if c != ALL_COMMANDS]}
+                added = set(record.get("added_commands", []))
+                if record.get("added_star"):  # records written by aps 0.1.0 before this fix
+                    added.add(LEGACY_WILDCARD)
+                if added:
+                    e = {**e, "approvedCommands": [c for c in e.get("approvedCommands", []) if c not in added]}
                 if record.get("created_executor") and not e.get("approvedCommands") and set(e) <= {"toolId", "approvedCommands"}:
                     continue
             kept.append(e)

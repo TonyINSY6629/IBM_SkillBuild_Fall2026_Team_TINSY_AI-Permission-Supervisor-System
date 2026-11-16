@@ -38,6 +38,14 @@ AUTO_APPROVE_RECORD = "bob_auto_approve.json"
 # Helpers
 # ---------------------------------------------------------------------------
 
+def _aps() -> str:
+    """How to run this CLI on this machine, for hints: `aps` if it is on PATH,
+    otherwise the `python -m` form (Python's Scripts folder is often not on PATH)."""
+    if shutil.which("aps"):
+        return "aps"
+    return f'"{sys.executable}" -m ai_permission_supervisor.cli'
+
+
 def _hook_python(explicit: str | None) -> Path:
     """Interpreter written into the hook command.
 
@@ -173,20 +181,22 @@ def cmd_install(args: argparse.Namespace) -> int:
         print(f"Installed Supervisor hooks in {settings_path}")
         if backup:
             print(f"  Backup of previous settings: {backup}")
-    if record and (record["groups"] or record["added_star"]):
+    if record and (record["groups"] or record["added_commands"]):
         previous = {}
         if _record_file().exists():
             previous = json.loads(_record_file().read_text(encoding="utf-8"))
         merged = {
             "groups": sorted(set(previous.get("groups", [])) | set(record["groups"])),
-            "added_star": previous.get("added_star", False) or record["added_star"],
+            "added_commands": sorted(set(previous.get("added_commands", [])) | set(record["added_commands"])),
+            "added_star": previous.get("added_star", False),  # legacy records only
             "created_executor": previous.get("created_executor", False) or record["created_executor"],
             "created_keys": sorted(set(previous.get("created_keys", [])) | set(record["created_keys"])),
             "created_approval": previous.get("created_approval", False) or record["created_approval"],
         }
         paths.state_dir().mkdir(parents=True, exist_ok=True)
         _record_file().write_text(json.dumps(merged, indent=2), encoding="utf-8")
-        print("  Bob auto-approve turned on for read, edit, execute (the Supervisor is now the single gate)")
+        print("  Bob auto-approve turned on for read, edit, and everyday shell commands\n"
+              "  (git, python, npm, ...); the Supervisor is now the single gate")
 
     ok, detail = _smoke_test_hook(python)
     print(f"  Hook client check: {'ok' if ok else 'FAILED - ' + detail}")
@@ -194,11 +204,13 @@ def cmd_install(args: argparse.Namespace) -> int:
         print("  Note: Step 1 probe hooks are still installed. Remove them with: aps install --remove-probe")
     if not args.bob_auto_approve and "execute" not in bob_hooks.auto_approve_status(updated)[0]:
         print("  Note: Bob will also show its own prompt for shell commands. To avoid two prompts:\n"
-              "        aps install --bob-auto-approve")
+              f"        {_aps()} install --bob-auto-approve")
 
+    aps = _aps()
     print(
         "\nNext steps:\n"
-        "  1. Start the service:   aps start        (or at every login: aps autostart enable)\n"
+        f"  1. Start the service:   {aps} start\n"
+        f"     and at every login:  {aps} autostart enable\n"
         "  2. Restart Bob so it loads the new settings.\n"
         "While the service is not running, Bob's tool calls are denied (fail-closed)."
     )
@@ -231,11 +243,13 @@ def cmd_uninstall(args: argparse.Namespace) -> int:
     if reverted:
         _record_file().unlink()
 
-    groups, star = bob_hooks.auto_approve_status(updated)
-    if "execute" in groups or star:
+    # Bob's docs do not say what "execute" alone (no command list) approves,
+    # so warn whenever it is on.
+    groups, _commands = bob_hooks.auto_approve_status(updated)
+    if "execute" in groups:
         print("\nWarning: Bob still auto-approves shell commands. Without the Supervisor they now run\n"
               "unchecked. Turn auto-approve off in Bob's settings unless you want that.")
-    print("Restart Bob for the change to take effect. Disable autostart with: aps autostart disable")
+    print(f"Restart Bob for the change to take effect. Disable autostart with: {_aps()} autostart disable")
     return 0
 
 
@@ -312,7 +326,7 @@ def cmd_stop(args: argparse.Namespace) -> int:
         print(f"Could not stop process: {exc}. If it is no longer running, delete {pid_file}", file=sys.stderr)
         return 1
     pid_file.unlink(missing_ok=True)
-    print("Supervisor stopped. Bob's tool calls are now denied until it is started again (or run: aps uninstall).")
+    print(f"Supervisor stopped. Bob's tool calls are now denied until it is started again (or run: {_aps()} uninstall).")
     return 0
 
 
@@ -384,13 +398,16 @@ def cmd_doctor(args: argparse.Namespace) -> int:
             check(OK, "Bob hooks", str(settings_path))
         if bob_hooks.has_probe_hooks(settings):
             check(WARN, "Probe hooks", "Step 1 probe hooks still installed (aps install --remove-probe)")
-        groups, star = bob_hooks.auto_approve_status(settings)
-        if not installed and ("execute" in groups or star):
+        groups, commands = bob_hooks.auto_approve_status(settings)
+        if not installed and "execute" in groups:
             check(FAIL, "Bob auto-approve", "shell commands are auto-approved but no Supervisor hook is installed: they run unchecked")
         elif installed and "execute" not in groups:
             check(WARN, "Bob auto-approve", "off for shell commands, so Bob also prompts (aps install --bob-auto-approve)")
+        elif installed and not bob_hooks.has_effective_command_prefixes(commands):
+            check(WARN, "Bob auto-approve", "no command prefixes listed (Bob ignores \"*\"), so Bob also prompts "
+                  "(aps install --bob-auto-approve)")
         elif installed:
-            check(OK, "Bob auto-approve", "on; the Supervisor is the single gate")
+            check(OK, "Bob auto-approve", f"on for {len(commands)} command prefixes; the Supervisor is the single gate")
     except bob_hooks.SettingsError as exc:
         check(FAIL, "Bob hooks", str(exc))
 
@@ -435,7 +452,7 @@ def cmd_autostart(args: argparse.Namespace) -> int:
         for error in errors:
             print(f"  Warning: {error}", file=sys.stderr)
         if plan.system == "windows":
-            print("  The service will start at your next login. Start it now with: aps start")
+            print(f"  The service will start at your next login. Start it now with: {_aps()} start")
         return 1 if errors else 0
     existed, errors = autostart.disable(plan, activate=not args.no_activate)
     print(f"Autostart disabled: removed {plan.file}" if existed else "Autostart was not enabled.")

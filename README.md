@@ -145,10 +145,23 @@ The agent can neither read nor change this folder.
 
 Bob has its own approval prompt in front of tools. With the Supervisor
 installed, that means two prompts per command. `--bob-auto-approve` turns on
-Bob's auto-approve for **read, edit, and execute** only, so the Supervisor is
-the single gate. MCP tools are left on Bob's own prompt, because it is not yet
-confirmed that Bob's hook fires for MCP calls. `aps uninstall` turns off exactly
-what it turned on; if you enabled auto-approve yourself, it warns you, because
+Bob's auto-approve for **read, edit, and execute**, so the Supervisor is the
+single gate.
+
+For shell commands, Bob only skips its prompt for commands on its allowed
+list, which it matches by **prefix** (`git` covers `git push`), and it does not
+support a `*` wildcard. So `--bob-auto-approve` adds everyday prefixes: `git`,
+`python`, `py`, `pip`, `node`, `npm`, `npx`, `yarn`, `pnpm`, `pytest`,
+`uvicorn`, `dir`, `ls`, `cd`, `pwd`, `echo`, `type`, `cat`, `where`, `which`,
+`mkdir`, `Get-`, `Test-Path`, `Select-String`. Every command still goes through
+the Supervisor first; this only removes Bob's second prompt. Destructive
+commands such as `del` and `rm` are deliberately left off, so Bob keeps asking
+for those as an extra layer. To add your own, edit `approvedCommands` in
+`~/.bob/settings/settings.json`.
+
+MCP tools are left on Bob's own prompt, because it is not yet confirmed that
+Bob's hook fires for MCP calls. `aps uninstall` removes exactly what
+`aps install` added; if shell auto-approve stays on, it warns you, because
 without the Supervisor those commands would run unchecked.
 
 ## Customizing the policy

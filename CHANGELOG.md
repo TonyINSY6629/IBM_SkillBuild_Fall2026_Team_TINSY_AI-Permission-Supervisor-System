@@ -8,7 +8,11 @@ First installable release of the AI Permission Supervisor for IBM Bob.
 - `aps` command: install and uninstall the Bob hooks, start, stop, status,
   doctor, autostart at login (Windows, macOS, Linux), and an editable policy.
 - `aps install --bob-auto-approve` makes the Supervisor the single approval
-  gate; `aps uninstall` reverts exactly what it turned on.
+  gate by adding everyday command prefixes (`git`, `python`, `npm`, …) to
+  Bob's allowed list, since Bob matches by prefix and ignores `*`;
+  `aps uninstall` reverts exactly what it added.
+- CLI hints show a command that works on your machine (`python -m
+  ai_permission_supervisor.cli …`) when `aps` is not on your PATH.
 - Rules-only decisions: hard rails deny, allow rules pass silently, everything
   else is escalated to a human through an approval page.
 - Read-only shell commands (`git status`, `git diff`, `python --version`,
