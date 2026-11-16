@@ -127,6 +127,10 @@ def _protected_dirs() -> tuple[str, ...]:
     from ai_permission_supervisor import config
 
     dirs = [config.policy_dir(), config.state_dir()]
+     # NEW: protect the audit log folder too when AUDIT_LOG_PATH moves it
+    # (the default ~/supervisor_audit is already covered by name).
+    if os.environ.get("AUDIT_LOG_PATH"):
+        dirs.append(Path(os.environ["AUDIT_LOG_PATH"]).parent)
     if os.environ.get("APS_ALLOW_SELF_EDIT", "") not in ("1", "true", "yes"):
         dirs.append(config.PACKAGE_DIR)
     out = []
