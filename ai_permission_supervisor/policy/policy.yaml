@@ -34,7 +34,7 @@
 
 meta:
   version_tag: "2026-11-16-v2"
-  description: "Rules-only policy. v2 adds al-003 (read-only shell command allow-list)."
+  description: "Rules-only policy. v2 adds al-003 (read-only shell command allow-list) and hr-007 (no writes inside .git/)."
   taxonomy_version: "draft-2026-11-04-v1"
 
 # ===========================================================================
@@ -151,6 +151,26 @@ hard_rails:
         Blocked: write to a file matching a secret/credential pattern is not
         permitted. If this is intentional, perform the write manually.
 
+  - id: hr-007
+    name: deny_git_internals_write
+    description: >
+      Deny file-tool writes inside any .git/ folder. git runs commands named in
+      .git/config (core.fsmonitor, diff.external) and .git/hooks, so a write
+      there followed by an auto-allowed "git status" (al-003) would run code
+      with no human approval. Normal edits to .gitignore or .github/ are not
+      affected; git itself changes .git/ through shell commands, which are
+      checked separately.
+    condition:
+      action_type: WRITE
+      target_pattern: "*.git/*"
+    verdict:
+      action: deny
+      decided_by: hard_rail
+      label: Warning
+      reason: >
+        Blocked: writing inside a .git/ folder is not permitted. Git runs
+        commands from .git/config and .git/hooks, so these files must not be
+        changed by the agent.
 # ===========================================================================
 # ALLOW RULES — clear-cut safe operations, evaluated after hard rails
 # ===========================================================================
