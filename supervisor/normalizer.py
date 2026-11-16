@@ -103,7 +103,32 @@ _SUPERVISOR_PATH_PATTERNS: tuple[str, ...] = (
     "hook_client\\probe.py",
     ".bob/settings",
     ".bob\\settings",
+    # State directory written by the `aps` CLI (hook backups, pid file, logs).
+    ".ai_permission_supervisor",
 )
+
+# Hostnames the Supervisor service can be reached on from the same machine.
+_LOCAL_HOSTS: tuple[str, ...] = ("127.0.0.1", "localhost", "0.0.0.0", "[::1]")
+
+
+def _supervisor_endpoint_patterns() -> tuple[str, ...]:
+    """
+    Return "host:port" substrings that identify the Supervisor service itself.
+
+    A command that talks to the Supervisor's own HTTP API (for example
+    `curl -X POST http://127.0.0.1:9001/decide ...`) could forge hook events
+    such as UserPromptSubmit (rewriting the recorded user task) or Stop
+    (clearing session context). Such commands are classified as
+    supervisor_path_access so the existing hard rails deny them.
+
+    Read at call time so SUPERVISOR_PORT / SUPERVISOR_URL changes are honoured.
+    """
+    ports = {os.environ.get("SUPERVISOR_PORT", "9001")}
+    url = os.environ.get("SUPERVISOR_URL", "")
+    match = re.search(r":(\d+)", url.split("//", 1)[-1]) if url else None
+    if match:
+        ports.add(match.group(1))
+    return tuple(f"{host}:{port}" for host in _LOCAL_HOSTS for port in sorted(ports))
 
 # Path-traversal patterns.
 _TRAVERSAL_PATTERNS: tuple[str, ...] = ("../", "..\\", "%2e%2e")
@@ -231,11 +256,15 @@ def _categorize(
       6. shell_exec              (exec not matched above)
       7. unclassified            (catch-all)
     """
-    # 1. Supervisor path — checked on any action type
+    # 1. Supervisor path or Supervisor HTTP endpoint — checked on any action type
+    endpoint_patterns = _supervisor_endpoint_patterns()
     for t in targets:
         t_lower = t.lower().replace("\\", "/")
         for pat in _SUPERVISOR_PATH_PATTERNS:
-            if pat.lower() in t_lower:
+            if pat.lower().replace("\\", "/") in t_lower:
+                return "supervisor_path_access"
+        for pat in endpoint_patterns:
+            if pat in t_lower:
                 return "supervisor_path_access"
 
     # 2. Write outside workspace
