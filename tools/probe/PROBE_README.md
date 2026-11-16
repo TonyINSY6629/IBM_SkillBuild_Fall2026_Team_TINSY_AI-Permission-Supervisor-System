@@ -2,7 +2,7 @@
 
 ## What this does
 
-Three files in `hook_client/`:
+Files in `tools/probe/`:
 
 | File | Purpose |
 |---|---|
@@ -19,15 +19,15 @@ Three files in `hook_client/`:
 ```powershell
 # Windows (PowerShell)
 New-Item -ItemType Directory -Force "$env:USERPROFILE\supervisor_probe"
-Copy-Item "hook_client\probe.py" "$env:USERPROFILE\supervisor_probe\probe.py"
-Copy-Item "hook_client\summarize.py" "$env:USERPROFILE\supervisor_probe\summarize.py"
+Copy-Item "tools\probe\probe.py" "$env:USERPROFILE\supervisor_probe\probe.py"
+Copy-Item "tools\probe\summarize.py" "$env:USERPROFILE\supervisor_probe\summarize.py"
 ```
 
 ```bash
 # macOS / Linux
 mkdir -p ~/supervisor_probe
-cp hook_client/probe.py ~/supervisor_probe/probe.py
-cp hook_client/summarize.py ~/supervisor_probe/summarize.py
+cp tools/probe/probe.py ~/supervisor_probe/probe.py
+cp tools/probe/summarize.py ~/supervisor_probe/summarize.py
 ```
 
 ### 2. Merge hooks into Bob's global settings
@@ -35,7 +35,7 @@ cp hook_client/summarize.py ~/supervisor_probe/summarize.py
 Open `~/.bob/settings/settings.json` (create it if it doesn't exist).
 
 If the file is empty or does not exist, paste the entire contents of
-`hook_client/probe_settings.json` as the file content.
+`tools/probe/probe_settings.json` as the file content.
 
 If it already has content, merge the `"hooks"` key from `probe_settings.json`
 into the existing file. Do **not** overwrite existing hooks — add to them.

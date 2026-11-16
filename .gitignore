@@ -24,3 +24,11 @@ Thumbs.db
 dataset/
 # config/ is committed (exclude_tool_use_ids.txt - no secrets)
 !config/
+
+# Runtime audit logs (real prompts, file contents, local paths) - never commit
+logs/
+
+# Packaging build output
+*.egg-info/
+build/
+dist/

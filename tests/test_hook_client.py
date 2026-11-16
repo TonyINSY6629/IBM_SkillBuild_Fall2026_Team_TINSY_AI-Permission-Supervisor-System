@@ -21,7 +21,7 @@ import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
-HOOK_CLIENT = str(Path(__file__).parent.parent / "hook_client" / "main.py")
+HOOK_CLIENT = str(Path(__file__).parent.parent / "ai_permission_supervisor" / "hook_client" / "main.py")
 PYTHON = sys.executable
 
 

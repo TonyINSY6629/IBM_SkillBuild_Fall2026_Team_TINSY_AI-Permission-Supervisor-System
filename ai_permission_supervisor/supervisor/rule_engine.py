@@ -15,6 +15,8 @@ Condition fields (all optional; omitted = match anything):
   inside_workspace — bool
   touches_secrets  — bool
   target_pattern   — glob pattern matched against any element of targets[]
+  command_matches  — list of regexes; the whole shell command must match one,
+                     and commands with shell metacharacters never match
 
 Public API:
   RuleEngine(policy_dict)          — construct from already-loaded policy dict
@@ -25,10 +27,11 @@ Public API:
 from __future__ import annotations
 
 import fnmatch
+import re
 from typing import Any
 
-from schemas.permission_request import PermissionRequest
-from schemas.verdict import Action, DecidedBy, Label, Verdict
+from ai_permission_supervisor.schemas.permission_request import PermissionRequest
+from ai_permission_supervisor.schemas.verdict import Action, DecidedBy, Label, Verdict
 
 # ---------------------------------------------------------------------------
 # Policy loader (used by app.py's _PolicyStore — kept thin here)
@@ -48,11 +51,41 @@ def load_policy(path: str | Path) -> dict[str, Any]:
 # Condition matching
 # ---------------------------------------------------------------------------
 
+_KNOWN_CONDITION_KEYS = frozenset({
+    "category", "action_type", "inside_workspace", "touches_secrets",
+    "target_pattern", "command_matches",
+})
+
+# Characters that chain, redirect, substitute, or expand in sh, cmd, or
+# PowerShell. A command containing any of them never matches command_matches,
+# so "git status && del /s *" cannot ride on the "git status" entry.
+_SHELL_META = re.compile(r"[;&|<>`$()\n\r%^]")
+
+
+def _command_is_allowlisted(patterns: list[str], targets: list[str]) -> bool:
+    """True if the single command fully matches one pattern and has no shell metacharacters."""
+    if len(targets) != 1:
+        return False
+    command = " ".join(targets[0].split())  # collapse repeated whitespace
+    if not command or _SHELL_META.search(command):
+        return False
+    return any(re.fullmatch(p, command, flags=re.IGNORECASE) for p in patterns)
+
+
 def _match_condition(condition: dict[str, Any], req: PermissionRequest) -> bool:
     """
     Return True if the PermissionRequest satisfies all fields in condition.
-    An omitted field matches anything.
+    An omitted field matches anything. A condition with a field this engine
+    does not understand never matches (fail-closed for newer policy files).
     """
+    if not _KNOWN_CONDITION_KEYS.issuperset(condition):
+        return False
+
+    # command_matches — list of regexes; the whole command must match one
+    if "command_matches" in condition:
+        if not _command_is_allowlisted(list(condition["command_matches"]), req.targets):
+            return False
+
     # category
     if "category" in condition:
         if req.category != condition["category"]:

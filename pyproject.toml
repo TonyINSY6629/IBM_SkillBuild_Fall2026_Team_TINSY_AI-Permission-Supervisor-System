@@ -1,0 +1,77 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ai-permission-supervisor"
+dynamic = ["version"]
+description = "Local guardrail for IBM Bob: intercepts every agent tool call and allows, denies, or escalates it to a human before it runs."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Team TINSY" }]
+keywords = ["ai-agents", "guardrails", "ibm-bob", "permissions", "human-in-the-loop", "agent-security"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security",
+    "Topic :: Software Development",
+]
+
+# Core runtime only: Supervisor service + Hook Client + `aps` CLI.
+dependencies = [
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.29.0",
+    "pydantic>=2.0.0",
+    "pyyaml>=6.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+# Audit-log sync to IBM Cloud Object Storage.
+cloud = ["ibm-cos-sdk>=2.13.0"]
+# Build-time teacher pipeline (DSPy + watsonx.ai). Runs from a source checkout.
+teacher = [
+    "dspy-ai==3.4.1",  # pinned: WatsonxLM wrapper depends on DSPy internals
+    "ibm-watsonx-ai>=1.1.0",
+]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "httpx>=0.27.0",
+    "httpx2",
+    "build>=1.0",
+    "twine>=5.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/TonyINSY6629/IBM_SkillBuild_Fall2026_Team_TINSY_AI-Permission-Supervisor-System"
+Source = "https://github.com/TonyINSY6629/IBM_SkillBuild_Fall2026_Team_TINSY_AI-Permission-Supervisor-System"
+Issues = "https://github.com/TonyINSY6629/IBM_SkillBuild_Fall2026_Team_TINSY_AI-Permission-Supervisor-System/issues"
+Changelog = "https://github.com/TonyINSY6629/IBM_SkillBuild_Fall2026_Team_TINSY_AI-Permission-Supervisor-System/blob/main/CHANGELOG.md"
+
+[project.scripts]
+aps = "ai_permission_supervisor.cli.main:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "ai_permission_supervisor.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["ai_permission_supervisor*"]
+
+[tool.setuptools.package-data]
+"ai_permission_supervisor" = ["policy/*.yaml", "py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_default_fixture_loop_scope = "function"

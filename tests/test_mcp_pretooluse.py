@@ -46,7 +46,7 @@ from pathlib import Path
 
 import pytest
 
-HOOK_CLIENT = str(Path(__file__).parent.parent / "hook_client" / "main.py")
+HOOK_CLIENT = str(Path(__file__).parent.parent / "ai_permission_supervisor" / "hook_client" / "main.py")
 PYTHON = sys.executable
 
 

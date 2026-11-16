@@ -1,6 +1,6 @@
 # Bug fixes — 2026-11-12 (Christina)
 
-Bugs found by two separate reviews (Claude + Bob), checked against the code, fixed one per commit.
+Bugs found by two separate reviews, checked against the code, fixed one per commit.
 Every code change is marked with `NEW` comments (`# NEW` in Python, `// NEW` in TypeScript,
 `<!-- NEW -->` in Markdown; JSON has no comments, so Bug 6 is noted in its `_comment` list).
 

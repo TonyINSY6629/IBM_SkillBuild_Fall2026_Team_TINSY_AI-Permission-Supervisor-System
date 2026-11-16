@@ -32,14 +32,14 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from schemas.permission_request import ActionType, PermissionRequest
-from schemas.verdict import Action, DecidedBy, Label
-from supervisor.audit import AuditLog
-from supervisor.policy_engine import PolicyEngine, PolicyEngineError
-from supervisor.rule_engine import RuleEngine, load_policy
+from ai_permission_supervisor.schemas.permission_request import ActionType, PermissionRequest
+from ai_permission_supervisor.schemas.verdict import Action, DecidedBy, Label
+from ai_permission_supervisor.supervisor.audit import AuditLog
+from ai_permission_supervisor.supervisor.policy_engine import PolicyEngine, PolicyEngineError
+from ai_permission_supervisor.supervisor.rule_engine import RuleEngine, load_policy
 
 PROJECT_ROOT = str(Path(__file__).parent.parent.resolve())
-POLICY_PATH = Path(PROJECT_ROOT) / "policy" / "policy.yaml"
+POLICY_PATH = Path(PROJECT_ROOT) / "ai_permission_supervisor" / "policy" / "policy.yaml"
 
 
 # ---------------------------------------------------------------------------
@@ -170,7 +170,7 @@ class TestHardRails:
     def test_hard_rail_deny_has_policy_version(self):
         req = _req(action_type=ActionType.WRITE, category="supervisor_path_access")
         verdict = _engine().evaluate(req)
-        assert verdict.policy_version == "2026-11-04-v1"
+        assert verdict.policy_version == "2026-11-16-v2"
 
 
 # ---------------------------------------------------------------------------
@@ -351,7 +351,7 @@ class TestPolicyEngineAudit:
     def test_audit_write_failure_raises_policy_engine_error(self, tmp_path):
         """If the audit log write fails, PolicyEngine must raise PolicyEngineError."""
         failing_audit = MagicMock(spec=AuditLog)
-        from supervisor.audit import AuditWriteError
+        from ai_permission_supervisor.supervisor.audit import AuditWriteError
         failing_audit.write_entry.side_effect = AuditWriteError("disk full")
 
         engine = PolicyEngine(_engine(), failing_audit)
@@ -380,7 +380,7 @@ class TestPolicyEngineAudit:
         assert snap["action"] == "allow"
         assert snap["decided_by"] == "rule"
         assert snap["matched_rule_id"] == "al-001"
-        assert snap["policy_version"] == "2026-11-04-v1"
+        assert snap["policy_version"] == "2026-11-16-v2"
         # prompt_text now included in snapshot (Christina's change 4)
         assert "prompt_text" in snap
         # for_review_only: False for rule-based allow (not a hard rail)
@@ -407,7 +407,7 @@ class TestPolicyEngineAudit:
     def test_escalation_writes_feedback_entry(self, tmp_path):
         """After escalation resolves, a second audit entry with record_type=human_feedback must be written."""
         import json
-        from supervisor.escalation import EscalationManager
+        from ai_permission_supervisor.supervisor.escalation import EscalationManager
         import threading, time
 
         audit = _audit(tmp_path)

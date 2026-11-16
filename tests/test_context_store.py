@@ -30,7 +30,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from supervisor.context_store import ContextStore, PromptContext
+from ai_permission_supervisor.supervisor.context_store import ContextStore, PromptContext
 
 PROJECT_ROOT = str(Path(__file__).parent.parent.resolve())
 
@@ -169,8 +169,8 @@ class TestDoneCondition:
         Done-condition: submit prompt, trigger tool call, verify
         PermissionRequest.prompt_id and prompt_text are populated.
         """
-        from supervisor.context_store import ContextStore
-        from supervisor.normalizer import normalize
+        from ai_permission_supervisor.supervisor.context_store import ContextStore
+        from ai_permission_supervisor.supervisor.normalizer import normalize
 
         store = ContextStore()
 
@@ -209,7 +209,7 @@ class TestDoneCondition:
         If no UserPromptSubmit was recorded for the session,
         PermissionRequest.prompt_id must be None (not crash).
         """
-        from supervisor.normalizer import normalize
+        from ai_permission_supervisor.supervisor.normalizer import normalize
 
         payload = {
             "hook_event_name": "PreToolUse",
@@ -228,8 +228,8 @@ class TestDoneCondition:
         The most recent prompt for a session is what gets attached —
         not the first one.
         """
-        from supervisor.context_store import ContextStore
-        from supervisor.normalizer import normalize
+        from ai_permission_supervisor.supervisor.context_store import ContextStore
+        from ai_permission_supervisor.supervisor.normalizer import normalize
 
         store = ContextStore()
         session_id = "session-second-prompt"

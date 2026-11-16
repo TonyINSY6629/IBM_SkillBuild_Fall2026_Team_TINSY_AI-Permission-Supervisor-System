@@ -21,7 +21,7 @@ Configuration (environment variables):
   AUDIT_LOG_PATH        — path to audit_log.jsonl (shared with audit.py)
 
 Usage:
-  from supervisor.cos_sync import start_cos_sync
+  from ai_permission_supervisor.supervisor.cos_sync import start_cos_sync
   start_cos_sync()   # call once at Supervisor startup
 """
 
