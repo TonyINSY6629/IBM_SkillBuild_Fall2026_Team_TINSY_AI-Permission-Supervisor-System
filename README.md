@@ -266,4 +266,4 @@ Releasing a new version is described in [PUBLISHING.md](PUBLISHING.md).
 
 ## License
 
-Not yet chosen. Until a license is added, all rights are reserved by the authors.
+MIT. See [LICENSE](LICENSE).
