@@ -214,7 +214,8 @@ class TestAutostart:
 
     def test_systemd_unit_runs_in_foreground(self, tmp_path):
         plan = autostart.build_plan(python="/opt/py/bin/python", system="linux", home=tmp_path)
-        assert 'ExecStart="/opt/py/bin/python" -m ai_permission_supervisor.cli start --foreground' in plan.content
+       # NEW: Windows turns "/opt/py/bin/python" into "\opt\py\bin\python", so build the expected path the same way
+        assert f'ExecStart="{Path("/opt/py/bin/python")}" -m ai_permission_supervisor.cli start --foreground' in plan.content
 
     def test_windows_file_uses_crlf(self, tmp_path, monkeypatch):
         monkeypatch.setenv("APPDATA", str(tmp_path))
