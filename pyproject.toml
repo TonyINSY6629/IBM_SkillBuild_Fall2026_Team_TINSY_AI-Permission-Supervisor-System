@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ai-permission-supervisor"
+version = "0.1.0"
+description = "Runtime guardrail for AI coding agents: intercepts every IBM Bob tool call, classifies it, and allows, denies, or escalates it to a human."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "Team TINSY" }]
+keywords = ["ai-agents", "guardrails", "ibm-bob", "permissions", "human-in-the-loop"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Topic :: Security",
+    "Topic :: Software Development",
+]
+
+# Core runtime only: Supervisor service + Hook Client + `aps` CLI.
+dependencies = [
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.29.0",
+    "pydantic>=2.0.0",
+    "pyyaml>=6.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+# Audit-log sync to IBM Cloud Object Storage.
+cloud = ["ibm-cos-sdk>=2.13.0"]
+# Build-time teacher pipeline (DSPy + watsonx.ai). Not needed to run the Supervisor.
+teacher = [
+    "dspy-ai==3.4.1",  # pinned: WatsonxLM wrapper depends on DSPy internals
+    "ibm-watsonx-ai>=1.1.0",
+]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "httpx>=0.27.0",
+    "httpx2",
+]
+
+[project.scripts]
+aps = "aps_cli.main:main"
+
+# v0.1 is installed from a clone with `pip install -e .` so the Supervisor runs
+# from the repository (policy/, hook_client/, supervisor/). Only the CLI is a
+# declared package; `aps` refuses to run if the repository files are missing.
+[tool.setuptools]
+packages = ["aps_cli"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
