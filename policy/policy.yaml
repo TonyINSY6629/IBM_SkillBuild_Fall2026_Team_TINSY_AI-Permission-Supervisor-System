@@ -1,5 +1,5 @@
 # AI Permission Supervisor — Policy
-# Version: 2026-11-04-v1
+# Version: 2026-11-16-v2
 #
 # This file is the authoritative decision table consumed by the Rule Engine.
 # The Rule Engine loads this file at startup (and on background refresh).
@@ -22,6 +22,8 @@
 #   inside_workspace — true | false
 #   touches_secrets — true | false
 #   target_pattern  — glob pattern matched against any element of targets[]
+#   command_matches — list of regexes; the whole shell command must match one
+#                     (commands with shell metacharacters never match)
 #
 # Verdict fields:
 #   action      — allow | deny | escalate
@@ -31,8 +33,8 @@
 #                 to model on stderr for deny)
 
 meta:
-  version_tag: "2026-11-04-v1"
-  description: "Initial rules-only policy. No model in the ambiguous path yet."
+  version_tag: "2026-11-16-v2"
+  description: "Rules-only policy. v2 adds al-003 (read-only shell command allow-list)."
   taxonomy_version: "draft-2026-11-04-v1"
 
 # ===========================================================================
@@ -189,6 +191,49 @@ allow_rules:
       label: Neutral
       reason: "Write to workspace file — auto-allowed."
 
+  - id: al-003
+    name: allow_readonly_shell_commands
+    description: >
+      Read-only shell commands that only report information (versions, git
+      status/diff/log, directory listing) are clear-cut safe. Escalating them
+      would cause approval fatigue. Each entry is a regex the WHOLE command
+      must match (case-insensitive). Commands containing shell metacharacters
+      (; & | < > ` $ ( ) % ^ or a newline) never match, so chaining such as
+      "git status && del /s *" is still escalated. Deliberately excluded:
+      anything that writes files (git diff --output), reads files outside the
+      workspace (git diff --no-index, cat/type), or runs project code (tests).
+    condition:
+      category: shell_exec
+      action_type: EXEC
+      touches_secrets: false
+      command_matches:
+        # Version checks
+        - 'python3? (--version|-V)'
+        - 'py( -3(\.\d+)?)? (--version|-V)'
+        - '(python3? -m )?pip3? (--version|-V|list|freeze)'
+        - '(node|npm|npx|yarn) (--version|-v)'
+        - 'git --version'
+        # Git, read-only forms only
+        - 'git status( (-s|-b|-sb|--short|--branch))*'
+        - 'git diff( (--stat|--cached|--staged|--name-only|--name-status))*'
+        - 'git log( (--oneline|--graph|--decorate|-n \d{1,4}|-\d{1,4}))*'
+        - 'git branch( (-a|-v|-vv|--list|--show-current))*'
+        - 'git rev-parse (--abbrev-ref HEAD|--show-toplevel|HEAD)'
+        - 'git remote -v'
+        # Current directory listing and location (no path arguments)
+        - 'dir( /b| /w)?'
+        - 'ls( -(l|a|la|al|1))?'
+        - 'pwd'
+        - 'Get-Location'
+        - 'Get-ChildItem'
+        # Where is a tool installed?
+        - '(where|which|where\.exe) (python3?|py|pip3?|git|node|npm)'
+    verdict:
+      action: allow
+      decided_by: rule
+      label: Safe
+      reason: "Read-only shell command on the allow-list — auto-allowed."
+
 # ===========================================================================
 # DEFAULT — no hard rail matched, no allow rule matched
 # ===========================================================================
@@ -207,8 +252,8 @@ default:
 # The following categories are intentionally left to the default (escalate)
 # until there is enough labeled data to write specific rules:
 #
-#   shell_exec          — too broad; model needed to distinguish safe shell
-#                         commands (e.g. "python --version") from dangerous ones
+#   shell_exec          — too broad beyond the al-003 allow-list; model needed to
+#                         judge other shell commands
 #   network_request     — always escalate until network policy is defined
 #   secret_access (READ)— escalate, not deny: some legitimate reads exist
 #   unclassified        — escalate by definition

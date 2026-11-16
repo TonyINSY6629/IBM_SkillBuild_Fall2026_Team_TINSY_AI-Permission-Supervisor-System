@@ -170,7 +170,7 @@ class TestHardRails:
     def test_hard_rail_deny_has_policy_version(self):
         req = _req(action_type=ActionType.WRITE, category="supervisor_path_access")
         verdict = _engine().evaluate(req)
-        assert verdict.policy_version == "2026-11-04-v1"
+        assert verdict.policy_version == "2026-11-16-v2"
 
 
 # ---------------------------------------------------------------------------
@@ -380,7 +380,7 @@ class TestPolicyEngineAudit:
         assert snap["action"] == "allow"
         assert snap["decided_by"] == "rule"
         assert snap["matched_rule_id"] == "al-001"
-        assert snap["policy_version"] == "2026-11-04-v1"
+        assert snap["policy_version"] == "2026-11-16-v2"
         # prompt_text now included in snapshot (Christina's change 4)
         assert "prompt_text" in snap
         # for_review_only: False for rule-based allow (not a hard rail)
