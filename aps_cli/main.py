@@ -202,8 +202,9 @@ def cmd_start(args: argparse.Namespace) -> int:
     # The React pop-up (UI/escalation-popup-src) only works while its dev server
     # runs. Installed users get the approval page built into the service instead,
     # unless they set ESCALATION_POPUP_URL in the environment or in .env.
+    # Not "": Windows drops empty environment variables before the child sees them.
     if "ESCALATION_POPUP_URL" not in os.environ and "ESCALATION_POPUP_URL" not in _dotenv():
-        os.environ["ESCALATION_POPUP_URL"] = ""
+        os.environ["ESCALATION_POPUP_URL"] = "builtin"
 
     if args.foreground:
         # Used by launchd / systemd, which manage the process themselves.

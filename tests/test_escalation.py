@@ -306,3 +306,24 @@ class TestPolicyEngineEscalation:
 
         t.join(timeout=3.0)
         assert decide_result["result"]["action"] == "allow"
+
+
+# ---------------------------------------------------------------------------
+# ESCALATION_POPUP_URL=builtin selects the page served by the Supervisor.
+# (An empty value cannot be passed to a child process on Windows.)
+# ---------------------------------------------------------------------------
+
+import importlib
+
+
+@pytest.mark.parametrize("value", ["builtin", "BUILTIN", "off", "none"])
+def test_popup_url_builtin_keyword_uses_supervisor_page(monkeypatch, value):
+    import supervisor.escalation as esc
+    monkeypatch.setenv("ESCALATION_POPUP_URL", value)
+    try:
+        importlib.reload(esc)
+        url = esc.EscalationManager(base_url="http://127.0.0.1:9001").popup_url("abc")
+        assert url == "http://127.0.0.1:9001/escalation/abc"
+    finally:
+        monkeypatch.delenv("ESCALATION_POPUP_URL")
+        importlib.reload(esc)

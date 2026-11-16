@@ -102,7 +102,7 @@ root (read by the Supervisor service, not by the Hook Client).
 | `ESCALATION_TIMEOUT_SECONDS` | `120` | How long to wait for your approval |
 | `HOOK_DEADLINE_SECONDS` | `130` | Hook Client deadline (environment only) |
 | `ESCALATION_OPEN_BROWSER` | `1` | Open the approval page automatically |
-| `ESCALATION_POPUP_URL` | built-in page | URL of the React pop-up (`UI/escalation-popup-src`), for development |
+| `ESCALATION_POPUP_URL` | `builtin` with `aps start` | URL of the React pop-up (`UI/escalation-popup-src`) for development, or `builtin` for the page served by the Supervisor |
 | `AUDIT_LOG_PATH` | `~/supervisor_audit/audit_log.jsonl` | Audit log location |
 | `POLICY_DIR` | `policy/` | Folder with `policy.yaml` and `taxonomy.yaml` |
 | `COS_API_KEY`, `COS_INSTANCE_ID`, `COS_AUDIT_BUCKET` | unset | Optional audit-log sync to IBM Cloud Object Storage (`pip install -e ".[cloud]"`) |

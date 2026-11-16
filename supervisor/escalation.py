@@ -77,6 +77,11 @@ SUPERVISOR_BASE_URL: str = os.environ.get(
 #   cd UI/escalation-popup-src; npm run dev
 # If it isn't, use the "Backup page" link printed in the supervisor terminal.
 POPUP_URL: str = os.environ.get("ESCALATION_POPUP_URL", "http://localhost:8080")
+# "builtin" (or off/none) selects the page served by this service. An explicit
+# word is needed because Windows drops environment variables set to "", so an
+# empty value cannot be passed to a child process there.
+if POPUP_URL.strip().lower() in ("builtin", "off", "none", "0", "false"):
+    POPUP_URL = ""
 OPEN_BROWSER: bool = os.environ.get("ESCALATION_OPEN_BROWSER", "1") not in ("0", "false", "")
 
 # ---------------------------------------------------------------------------
