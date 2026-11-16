@@ -1,18 +1,15 @@
 {
   "_comment": [
-    "Supervisor hook settings for ~/.bob/settings/settings.json.",
-    "Merge this into your existing settings.json when you are ready to",
-    "switch from the probe hook to the real Hook Client.",
+    "Reference example only. Prefer `aps install`, which writes these hooks into",
+    "~/.bob/settings/settings.json with absolute paths for your machine, makes a",
+    "backup first, and keeps your other settings.",
+    "",
+    "Manual setup: replace <PYTHON> with the full path of your Python interpreter",
+    "(not 'python3', which can open the Microsoft Store on Windows; a hook that",
+    "fails to start does NOT block the tool call) and <REPO> with this repository's path.",
     "",
     "Timeout ordering (must be maintained):",
-    "  escalation_timeout (120 s) < HOOK_DEADLINE_SECONDS (130 s) < timeout here (150 s)",
-    "",
-    "Windows path for main.py: adjust if your project root differs.",
-    "NEW (Bug 6): commands use 'py -3' (the Windows Python launcher). 'python3' may not exist on Windows",
-    "or may open the Microsoft Store, and a hook that fails to start does NOT block the tool call.",
-    "",
-    "The probe hook entries in probe_settings.json can be REMOVED once",
-    "you switch to this settings file — the Supervisor service logs everything."
+    "  escalation_timeout (120 s) < HOOK_DEADLINE_SECONDS (130 s) < PreToolUse timeout here (150 s)"
   ],
   "hooks": {
     "PreToolUse": [
@@ -21,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "py -3 \"C:/Education/FORDHAM/Jobs/IBM/IBM SkillBuild Fall2026/Project/hook_client/main.py\"",
+            "command": "\"<PYTHON>\" \"<REPO>/hook_client/main.py\"",
             "timeout": 150
           }
         ]
@@ -32,7 +29,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "py -3 \"C:/Education/FORDHAM/Jobs/IBM/IBM SkillBuild Fall2026/Project/hook_client/main.py\"",
+            "command": "\"<PYTHON>\" \"<REPO>/hook_client/main.py\"",
             "timeout": 10
           }
         ]
@@ -44,7 +41,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "py -3 \"C:/Education/FORDHAM/Jobs/IBM/IBM SkillBuild Fall2026/Project/hook_client/main.py\"",
+            "command": "\"<PYTHON>\" \"<REPO>/hook_client/main.py\"",
             "timeout": 10
           }
         ]
@@ -55,7 +52,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "py -3 \"C:/Education/FORDHAM/Jobs/IBM/IBM SkillBuild Fall2026/Project/hook_client/main.py\"",
+            "command": "\"<PYTHON>\" \"<REPO>/hook_client/main.py\"",
             "timeout": 10
           }
         ]

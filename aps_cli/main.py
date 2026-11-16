@@ -101,17 +101,22 @@ def _read_settings(path: Path) -> dict | None:
         return None
 
 
-def _timeouts_from_env() -> tuple[float, float]:
-    """Escalation timeout (read by the service, also from .env) and Hook Client deadline."""
-    env = dict(os.environ)
+def _dotenv() -> dict[str, str]:
+    """Values from the repository's .env file (the service loads it at startup)."""
     try:
         from dotenv import dotenv_values
-        env = {**{k: v for k, v in dotenv_values(paths.REPO_ROOT / ".env").items() if v is not None}, **env}
     except ImportError:
-        pass
+        return {}
+    return {k: v for k, v in dotenv_values(paths.REPO_ROOT / ".env").items() if v is not None}
+
+
+def _timeouts_from_env() -> tuple[float, float]:
+    """Escalation timeout (the service also reads .env) and Hook Client deadline
+    (the Hook Client does not read .env, only the environment Bob gives it)."""
+    service_env = {**_dotenv(), **os.environ}
     return (
-        float(env.get("ESCALATION_TIMEOUT_SECONDS", "120")),
-        float(env.get("HOOK_DEADLINE_SECONDS", "130")),
+        float(service_env.get("ESCALATION_TIMEOUT_SECONDS", "120")),
+        float(os.environ.get("HOOK_DEADLINE_SECONDS", "130")),
     )
 
 
@@ -193,6 +198,12 @@ def cmd_start(args: argparse.Namespace) -> int:
         print(f"Supervisor already running at {paths.supervisor_url()}")
         return 0
     host, port = paths.supervisor_host(), paths.supervisor_port()
+
+    # The React pop-up (UI/escalation-popup-src) only works while its dev server
+    # runs. Installed users get the approval page built into the service instead,
+    # unless they set ESCALATION_POPUP_URL in the environment or in .env.
+    if "ESCALATION_POPUP_URL" not in os.environ and "ESCALATION_POPUP_URL" not in _dotenv():
+        os.environ["ESCALATION_POPUP_URL"] = ""
 
     if args.foreground:
         # Used by launchd / systemd, which manage the process themselves.
