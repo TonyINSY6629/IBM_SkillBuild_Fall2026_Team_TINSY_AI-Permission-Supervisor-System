@@ -17,7 +17,7 @@ from typing import Any
 
 import yaml
 
-_DEFAULT_POLICY = Path(__file__).parent.parent / "policy" / "policy.yaml"
+_DEFAULT_POLICY = Path(__file__).parent.parent / "ai_permission_supervisor" / "policy" / "policy.yaml"
 
 
 def load_policy(path: Path = _DEFAULT_POLICY) -> dict[str, Any]:

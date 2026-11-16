@@ -30,8 +30,8 @@ import fnmatch
 import re
 from typing import Any
 
-from schemas.permission_request import PermissionRequest
-from schemas.verdict import Action, DecidedBy, Label, Verdict
+from ai_permission_supervisor.schemas.permission_request import PermissionRequest
+from ai_permission_supervisor.schemas.verdict import Action, DecidedBy, Label, Verdict
 
 # ---------------------------------------------------------------------------
 # Policy loader (used by app.py's _PolicyStore — kept thin here)

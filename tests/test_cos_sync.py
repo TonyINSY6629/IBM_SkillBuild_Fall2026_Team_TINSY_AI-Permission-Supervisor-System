@@ -19,8 +19,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-import supervisor.cos_sync as cs
-from supervisor.audit import AuditLog
+import ai_permission_supervisor.supervisor.cos_sync as cs
+from ai_permission_supervisor.supervisor.audit import AuditLog
 
 
 class _FakeObject:

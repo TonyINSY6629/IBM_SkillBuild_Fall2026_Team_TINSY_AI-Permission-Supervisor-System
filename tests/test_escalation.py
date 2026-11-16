@@ -29,7 +29,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from supervisor.escalation import EscalationManager, EscalationResult
+from ai_permission_supervisor.supervisor.escalation import EscalationManager, EscalationResult
 
 
 # ---------------------------------------------------------------------------
@@ -232,12 +232,12 @@ class TestPolicyEngineEscalation:
         End-to-end: PolicyEngine with a short-timeout EscalationManager,
         shell_exec request → escalate → timeout → escalate_denied.
         """
-        from schemas.permission_request import ActionType, PermissionRequest
-        from supervisor.audit import AuditLog
-        from supervisor.policy_engine import PolicyEngine
-        from supervisor.rule_engine import RuleEngine, load_policy
+        from ai_permission_supervisor.schemas.permission_request import ActionType, PermissionRequest
+        from ai_permission_supervisor.supervisor.audit import AuditLog
+        from ai_permission_supervisor.supervisor.policy_engine import PolicyEngine
+        from ai_permission_supervisor.supervisor.rule_engine import RuleEngine, load_policy
 
-        policy_path = Path(__file__).parent.parent / "policy" / "policy.yaml"
+        policy_path = Path(__file__).parent.parent / "ai_permission_supervisor" / "policy" / "policy.yaml"
         audit = AuditLog(log_path=tmp_path / "audit.jsonl")
         escalation = _manager(timeout=0.5)
         engine = PolicyEngine(load_policy.__wrapped__(policy_path) if hasattr(load_policy, '__wrapped__') else
@@ -262,12 +262,12 @@ class TestPolicyEngineEscalation:
         """
         End-to-end: human approves within timeout → allow.
         """
-        from schemas.permission_request import ActionType, PermissionRequest
-        from supervisor.audit import AuditLog
-        from supervisor.policy_engine import PolicyEngine
-        from supervisor.rule_engine import RuleEngine, load_policy
+        from ai_permission_supervisor.schemas.permission_request import ActionType, PermissionRequest
+        from ai_permission_supervisor.supervisor.audit import AuditLog
+        from ai_permission_supervisor.supervisor.policy_engine import PolicyEngine
+        from ai_permission_supervisor.supervisor.rule_engine import RuleEngine, load_policy
 
-        policy_path = Path(__file__).parent.parent / "policy" / "policy.yaml"
+        policy_path = Path(__file__).parent.parent / "ai_permission_supervisor" / "policy" / "policy.yaml"
         audit = AuditLog(log_path=tmp_path / "audit.jsonl")
         escalation = EscalationManager(
             base_url="http://127.0.0.1:9001", timeout_seconds=5.0
@@ -318,7 +318,7 @@ import importlib
 
 @pytest.mark.parametrize("value", ["builtin", "BUILTIN", "off", "none"])
 def test_popup_url_builtin_keyword_uses_supervisor_page(monkeypatch, value):
-    import supervisor.escalation as esc
+    import ai_permission_supervisor.supervisor.escalation as esc
     monkeypatch.setenv("ESCALATION_POPUP_URL", value)
     try:
         importlib.reload(esc)

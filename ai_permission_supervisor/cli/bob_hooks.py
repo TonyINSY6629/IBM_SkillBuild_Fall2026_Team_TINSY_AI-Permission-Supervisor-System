@@ -1,5 +1,5 @@
 """
-aps_cli/bob_hooks.py — Add and remove the Supervisor hooks in Bob's settings.
+ai_permission_supervisor/cli/bob_hooks.py — Supervisor hooks and auto-approve in Bob's settings.
 
 Bob merges hooks from ~/.bob/settings/settings.json (global) and the
 workspace's .bob/settings.json. The Supervisor is registered globally only:
@@ -187,3 +187,100 @@ def write_settings(path: Path, settings: dict[str, Any]) -> None:
         except OSError:
             pass
         raise
+
+
+# ---------------------------------------------------------------------------
+# Bob auto-approve
+#
+# Bob has its own approval prompt in front of tools. With the Supervisor
+# installed that means two prompts per command. Turning on Bob's auto-approve
+# for the groups the Supervisor checks makes the Supervisor the single gate.
+# The hook still runs first, so this is only safe while the hooks are
+# installed: `aps uninstall` reverts exactly what `aps install` added.
+#
+# Format (Bob docs, "Approval settings"):
+#   "approval": {
+#     "allowed_permissions": ["read", "edit", "execute", ...],
+#     "allowedExecutors": [{"toolId": "execute_command", "approvedCommands": [...]}]
+#   }
+# MCP is deliberately not auto-approved: it is not yet confirmed that Bob's
+# PreToolUse hook fires for MCP tool calls.
+# ---------------------------------------------------------------------------
+
+AUTO_APPROVE_GROUPS: tuple[str, ...] = ("read", "edit", "execute")
+ALL_COMMANDS = "*"
+
+
+def auto_approve_status(settings: dict[str, Any]) -> tuple[set[str], bool]:
+    """(auto-approved groups, whether every shell command is approved)."""
+    approval = settings.get("approval") if isinstance(settings.get("approval"), dict) else {}
+    groups = {g for g in approval.get("allowed_permissions", []) if isinstance(g, str)}
+    star = any(
+        isinstance(e, dict) and e.get("toolId") == "execute_command"
+        and ALL_COMMANDS in (e.get("approvedCommands") or [])
+        for e in approval.get("allowedExecutors", [])
+    )
+    return groups, star
+
+
+def forbidden_auto_approve_groups(settings: dict[str, Any]) -> list[str]:
+    """Groups an administrator has forbidden from auto-approval."""
+    approval = settings.get("approval") if isinstance(settings.get("approval"), dict) else {}
+    forbidden = approval.get("forbiddenApprovalGroups") or []
+    return [g for g in AUTO_APPROVE_GROUPS if g in forbidden]
+
+
+def enable_auto_approve(settings: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Return (new settings, record of what was added) — the record is used to undo it."""
+    result = copy.deepcopy(settings)
+    created_approval = "approval" not in result
+    approval = result.setdefault("approval", {})
+    if not isinstance(approval, dict):
+        raise SettingsError('"approval" in Bob settings must be an object')
+    created_keys = [k for k in ("allowed_permissions", "allowedExecutors") if k not in approval]
+    permissions = approval.setdefault("allowed_permissions", [])
+    added_groups = [g for g in AUTO_APPROVE_GROUPS if g not in permissions]
+    permissions.extend(added_groups)
+
+    executors = approval.setdefault("allowedExecutors", [])
+    entry = next((e for e in executors if isinstance(e, dict) and e.get("toolId") == "execute_command"), None)
+    created_entry = entry is None
+    if created_entry:
+        entry = {"toolId": "execute_command", "approvedCommands": []}
+        executors.append(entry)
+    commands = entry.setdefault("approvedCommands", [])
+    added_star = ALL_COMMANDS not in commands
+    if added_star:
+        commands.append(ALL_COMMANDS)
+    return result, {
+        "groups": added_groups, "added_star": added_star, "created_executor": created_entry,
+        "created_keys": created_keys, "created_approval": created_approval,
+    }
+
+
+def revert_auto_approve(settings: dict[str, Any], record: dict[str, Any]) -> dict[str, Any]:
+    """Undo exactly what enable_auto_approve added; leave anything else alone."""
+    result = copy.deepcopy(settings)
+    approval = result.get("approval")
+    if not isinstance(approval, dict):
+        return result
+    permissions = approval.get("allowed_permissions")
+    if isinstance(permissions, list):
+        approval["allowed_permissions"] = [g for g in permissions if g not in record.get("groups", [])]
+    executors = approval.get("allowedExecutors")
+    if isinstance(executors, list):
+        kept = []
+        for e in executors:
+            if isinstance(e, dict) and e.get("toolId") == "execute_command":
+                if record.get("added_star"):
+                    e = {**e, "approvedCommands": [c for c in e.get("approvedCommands", []) if c != ALL_COMMANDS]}
+                if record.get("created_executor") and not e.get("approvedCommands") and set(e) <= {"toolId", "approvedCommands"}:
+                    continue
+            kept.append(e)
+        approval["allowedExecutors"] = kept
+    for key in record.get("created_keys", []):
+        if approval.get(key) == []:
+            del approval[key]
+    if record.get("created_approval") and not approval:
+        del result["approval"]
+    return result

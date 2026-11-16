@@ -1,5 +1,5 @@
 """
-supervisor/app.py — AI Permission Supervisor Service
+ai_permission_supervisor/supervisor/app.py — AI Permission Supervisor Service
 
 Local FastAPI process. The Hook Client (hook_client/main.py) calls this.
 The Hook Client never touches policy files — all policy loading lives here.
@@ -9,7 +9,7 @@ Endpoints:
   POST /decide   → {"action": "allow"|"deny"|"escalate_denied", "reason": "..."}
 
 Policy sync:
-  - Loads policy.yaml + taxonomy.yaml from the local policy/ directory at startup.
+  - Loads policy.yaml + taxonomy.yaml from POLICY_DIR (see config.policy_dir) at startup.
   - Background thread refreshes them every POLICY_REFRESH_SECONDS seconds.
   - Falls back to the cached copy if the refresh fails.
 
@@ -19,10 +19,10 @@ COS audit sync:
   - If not set, sync is skipped silently (local audit log still works).
 
 Run with:
-  python -m uvicorn supervisor.app:app --host 127.0.0.1 --port 9001
+  python -m uvicorn ai_permission_supervisor.supervisor.app:app --host 127.0.0.1 --port 9001
 
-Or directly:
-  python supervisor/app.py
+Or with the CLI:
+  aps start
 """
 
 from __future__ import annotations
@@ -34,13 +34,13 @@ import time
 from pathlib import Path
 from typing import Any
 
-# Load .env from the project root if present (never required — env vars can
-# also be set in the shell). Must happen before any os.environ.get() calls.
-try:
-    from dotenv import load_dotenv as _load_dotenv
-    _load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env", override=False)
-except ImportError:
-    pass  # python-dotenv not installed — env vars must be set in the shell
+# Load .env files if present (never required — env vars can also be set in the
+# shell). Must happen before the modules below read os.environ at import time.
+# Locations, highest priority first: APS_ENV_FILE, ~/.ai_permission_supervisor/.env,
+# and the repository root when running from a source checkout.
+from ai_permission_supervisor import config as _config
+
+_config.load_env_files()
 
 import uvicorn
 import yaml
@@ -48,13 +48,13 @@ from fastapi import FastAPI, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 
-from supervisor.audit import AuditLog, audit_log as _default_audit_log
-from supervisor.context_store import context_store as _context_store
-from supervisor.cos_sync import start_cos_sync
-from supervisor.escalation import EscalationManager, escalation_router, set_manager
-from supervisor.normalizer import NormalizerError, normalize
-from supervisor.policy_engine import PolicyEngine, PolicyEngineError
-from supervisor.rule_engine import RuleEngine
+from ai_permission_supervisor.supervisor.audit import AuditLog, audit_log as _default_audit_log
+from ai_permission_supervisor.supervisor.context_store import context_store as _context_store
+from ai_permission_supervisor.supervisor.cos_sync import start_cos_sync
+from ai_permission_supervisor.supervisor.escalation import EscalationManager, escalation_router, set_manager
+from ai_permission_supervisor.supervisor.normalizer import NormalizerError, normalize
+from ai_permission_supervisor.supervisor.policy_engine import PolicyEngine, PolicyEngineError
+from ai_permission_supervisor.supervisor.rule_engine import RuleEngine
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -63,9 +63,9 @@ from supervisor.rule_engine import RuleEngine
 HOST: str = os.environ.get("SUPERVISOR_HOST", "127.0.0.1")
 PORT: int = int(os.environ.get("SUPERVISOR_PORT", "9001"))
 
-# Path to the local policy directory (relative to project root or overridden).
-_PROJECT_ROOT = Path(__file__).parent.parent
-POLICY_DIR: Path = Path(os.environ.get("POLICY_DIR", str(_PROJECT_ROOT / "policy")))
+# Policy directory: POLICY_DIR if set, else ~/.ai_permission_supervisor/policy
+# (created by `aps policy init`), else the default policy shipped in the package.
+POLICY_DIR: Path = _config.policy_dir()
 
 POLICY_REFRESH_SECONDS: float = float(
     os.environ.get("POLICY_REFRESH_SECONDS", "300")  # 5 minutes
@@ -119,7 +119,7 @@ class _PolicyStore:
                 self.policy_version = version
                 self.rule_engine = new_engine
 
-            log.info("Policy loaded: version=%s", version)
+            log.info("Policy loaded: version=%s from %s", version, POLICY_DIR)
 
         except FileNotFoundError as exc:
             log.error("Policy file not found — keeping cached copy: %s", exc)
@@ -379,7 +379,7 @@ async def decide(request: Request) -> JSONResponse:
 
 if __name__ == "__main__":
     uvicorn.run(
-        "supervisor.app:app",
+        "ai_permission_supervisor.supervisor.app:app",
         host=HOST,
         port=PORT,
         log_level="info",

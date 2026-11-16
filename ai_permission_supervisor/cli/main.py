@@ -1,14 +1,13 @@
 """
-aps_cli/main.py — `aps`: install, run, and check the AI Permission Supervisor.
+ai_permission_supervisor/cli/main.py — `aps`: install, run, and check the Supervisor.
 
 Commands:
-  aps install    Register the Supervisor hooks in Bob's global settings
-  aps uninstall  Remove them again (other settings are left untouched)
-  aps start      Start the Supervisor service in the background
-  aps stop       Stop a service started with `aps start`
-  aps status     Is the service running? Are the hooks installed?
-  aps doctor     Check the whole setup and explain what is wrong
-  aps autostart enable|disable   Start the service automatically at login
+  aps install [--bob-auto-approve]   Register the Supervisor hooks in Bob's global settings
+  aps uninstall                      Remove them again (other settings are left untouched)
+  aps start | stop | status          Run the Supervisor service in the background
+  aps doctor                         Check the whole setup and explain what is wrong
+  aps autostart enable|disable       Start the service automatically at login
+  aps policy path | init             Show or create your editable policy
 
 Once the hooks are installed, Bob's tool calls are DENIED whenever the
 Supervisor service is not running (fail-closed). Keep it running, enable
@@ -20,17 +19,19 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import signal
 import subprocess
 import sys
 import time
-import urllib.error
 import urllib.request
 from pathlib import Path
 
-from aps_cli import __version__, autostart, bob_hooks, paths
+from ai_permission_supervisor import config
+from ai_permission_supervisor.cli import __version__, autostart, bob_hooks, paths
 
 OK, WARN, FAIL = "OK  ", "WARN", "FAIL"
+AUTO_APPROVE_RECORD = "bob_auto_approve.json"
 
 
 # ---------------------------------------------------------------------------
@@ -66,9 +67,13 @@ def _log_file() -> Path:
     return paths.state_dir() / "supervisor.log"
 
 
+def _record_file() -> Path:
+    return paths.state_dir() / AUTO_APPROVE_RECORD
+
+
 def _smoke_test_hook(python: Path) -> tuple[bool, str]:
     """Run the Hook Client with a SessionStart payload. It must exit 0."""
-    payload = json.dumps({"hook_event_name": "SessionStart", "session_id": "aps-smoke-test", "cwd": str(paths.REPO_ROOT)})
+    payload = json.dumps({"hook_event_name": "SessionStart", "session_id": "aps-smoke-test", "cwd": str(Path.home())})
     try:
         done = subprocess.run(
             [str(python), str(paths.HOOK_SCRIPT)],
@@ -81,13 +86,12 @@ def _smoke_test_hook(python: Path) -> tuple[bool, str]:
     return True, "hook client runs"
 
 
-def _require_repo() -> bool:
-    if paths.repo_is_complete():
+def _require_package() -> bool:
+    if paths.package_is_complete():
         return True
     print(
-        "The Supervisor files were not found next to the aps CLI.\n"
-        "v0.1 must be installed from a clone of the repository:\n"
-        "  git clone <repo-url> && cd <repo> && pip install -e .",
+        f"The Supervisor's files are missing from {paths.PACKAGE_DIR}.\n"
+        "Reinstall with: pip install --force-reinstall ai-permission-supervisor",
         file=sys.stderr,
     )
     return False
@@ -102,12 +106,15 @@ def _read_settings(path: Path) -> dict | None:
 
 
 def _dotenv() -> dict[str, str]:
-    """Values from the repository's .env file (the service loads it at startup)."""
+    """Values from the .env files the service loads (first file wins)."""
     try:
         from dotenv import dotenv_values
     except ImportError:
         return {}
-    return {k: v for k, v in dotenv_values(paths.REPO_ROOT / ".env").items() if v is not None}
+    merged: dict[str, str] = {}
+    for path in reversed(config.env_files()):
+        merged.update({k: v for k, v in dotenv_values(path).items() if v is not None})
+    return merged
 
 
 def _timeouts_from_env() -> tuple[float, float]:
@@ -125,7 +132,7 @@ def _timeouts_from_env() -> tuple[float, float]:
 # ---------------------------------------------------------------------------
 
 def cmd_install(args: argparse.Namespace) -> int:
-    if not _require_repo():
+    if not _require_package():
         return 1
     settings_path = paths.bob_settings_path()
     settings = _read_settings(settings_path)
@@ -141,29 +148,58 @@ def cmd_install(args: argparse.Namespace) -> int:
     if args.remove_probe:
         updated, _ = bob_hooks.remove_probe_hooks(updated)
 
+    record = None
+    if args.bob_auto_approve:
+        forbidden = bob_hooks.forbidden_auto_approve_groups(updated)
+        if forbidden:
+            print(f"Error: your Bob settings forbid auto-approve for: {', '.join(forbidden)}", file=sys.stderr)
+            return 1
+        try:
+            updated, record = bob_hooks.enable_auto_approve(updated)
+        except bob_hooks.SettingsError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 1
+
     if args.dry_run:
         print(f"Would write {settings_path}:")
-        print(json.dumps(updated.get("hooks", {}), indent=2))
+        print(json.dumps({k: updated[k] for k in ("hooks", "approval") if k in updated}, indent=2))
         return 0
 
     if updated == settings:
-        print(f"Hooks already installed in {settings_path}")
+        print(f"Already installed in {settings_path}")
     else:
         backup = bob_hooks.backup_settings(settings_path, paths.state_dir() / "backups")
         bob_hooks.write_settings(settings_path, updated)
         print(f"Installed Supervisor hooks in {settings_path}")
         if backup:
             print(f"  Backup of previous settings: {backup}")
+    if record and (record["groups"] or record["added_star"]):
+        previous = {}
+        if _record_file().exists():
+            previous = json.loads(_record_file().read_text(encoding="utf-8"))
+        merged = {
+            "groups": sorted(set(previous.get("groups", [])) | set(record["groups"])),
+            "added_star": previous.get("added_star", False) or record["added_star"],
+            "created_executor": previous.get("created_executor", False) or record["created_executor"],
+            "created_keys": sorted(set(previous.get("created_keys", [])) | set(record["created_keys"])),
+            "created_approval": previous.get("created_approval", False) or record["created_approval"],
+        }
+        paths.state_dir().mkdir(parents=True, exist_ok=True)
+        _record_file().write_text(json.dumps(merged, indent=2), encoding="utf-8")
+        print("  Bob auto-approve turned on for read, edit, execute (the Supervisor is now the single gate)")
 
     ok, detail = _smoke_test_hook(python)
     print(f"  Hook client check: {'ok' if ok else 'FAILED - ' + detail}")
     if bob_hooks.has_probe_hooks(updated):
         print("  Note: Step 1 probe hooks are still installed. Remove them with: aps install --remove-probe")
+    if not args.bob_auto_approve and "execute" not in bob_hooks.auto_approve_status(updated)[0]:
+        print("  Note: Bob will also show its own prompt for shell commands. To avoid two prompts:\n"
+              "        aps install --bob-auto-approve")
 
     print(
         "\nNext steps:\n"
         "  1. Start the service:   aps start        (or at every login: aps autostart enable)\n"
-        "  2. Restart Bob so it loads the new hooks.\n"
+        "  2. Restart Bob so it loads the new settings.\n"
         "While the service is not running, Bob's tool calls are denied (fail-closed)."
     )
     return 0 if ok else 1
@@ -175,14 +211,30 @@ def cmd_uninstall(args: argparse.Namespace) -> int:
     if settings is None:
         return 1
     updated, removed = bob_hooks.remove_hooks(settings, include_probe=args.remove_probe)
-    if removed == 0:
+
+    reverted = False
+    if _record_file().exists():
+        record = json.loads(_record_file().read_text(encoding="utf-8"))
+        updated = bob_hooks.revert_auto_approve(updated, record)
+        reverted = True
+
+    if updated == settings:
         print(f"No Supervisor hooks found in {settings_path}")
-        return 0
-    backup = bob_hooks.backup_settings(settings_path, paths.state_dir() / "backups")
-    bob_hooks.write_settings(settings_path, updated)
-    print(f"Removed {removed} hook entr{'y' if removed == 1 else 'ies'} from {settings_path}")
-    if backup:
-        print(f"  Backup of previous settings: {backup}")
+    else:
+        backup = bob_hooks.backup_settings(settings_path, paths.state_dir() / "backups")
+        bob_hooks.write_settings(settings_path, updated)
+        print(f"Removed {removed} hook entr{'y' if removed == 1 else 'ies'} from {settings_path}")
+        if reverted:
+            print("  Turned off the Bob auto-approve settings that `aps install` had added")
+        if backup:
+            print(f"  Backup of previous settings: {backup}")
+    if reverted:
+        _record_file().unlink()
+
+    groups, star = bob_hooks.auto_approve_status(updated)
+    if "execute" in groups or star:
+        print("\nWarning: Bob still auto-approves shell commands. Without the Supervisor they now run\n"
+              "unchecked. Turn auto-approve off in Bob's settings unless you want that.")
     print("Restart Bob for the change to take effect. Disable autostart with: aps autostart disable")
     return 0
 
@@ -192,30 +244,29 @@ def cmd_uninstall(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 
 def cmd_start(args: argparse.Namespace) -> int:
-    if not _require_repo():
+    if not _require_package():
         return 1
     if _health():
         print(f"Supervisor already running at {paths.supervisor_url()}")
         return 0
     host, port = paths.supervisor_host(), paths.supervisor_port()
+    paths.state_dir().mkdir(parents=True, exist_ok=True)
 
     # The React pop-up (UI/escalation-popup-src) only works while its dev server
     # runs. Installed users get the approval page built into the service instead,
-    # unless they set ESCALATION_POPUP_URL in the environment or in .env.
+    # unless they set ESCALATION_POPUP_URL in the environment or in a .env file.
     # Not "": Windows drops empty environment variables before the child sees them.
     if "ESCALATION_POPUP_URL" not in os.environ and "ESCALATION_POPUP_URL" not in _dotenv():
         os.environ["ESCALATION_POPUP_URL"] = "builtin"
 
+    app_path = "ai_permission_supervisor.supervisor.app:app"
     if args.foreground:
         # Used by launchd / systemd, which manage the process themselves.
-        os.chdir(paths.REPO_ROOT)
-        sys.path.insert(0, str(paths.REPO_ROOT))
         import uvicorn
-        uvicorn.run("supervisor.app:app", host=host, port=port, log_level="info")
+        uvicorn.run(app_path, host=host, port=port, log_level="info")
         return 0
 
-    paths.state_dir().mkdir(parents=True, exist_ok=True)
-    command = [sys.executable, "-m", "uvicorn", "supervisor.app:app", "--host", host, "--port", str(port)]
+    command = [sys.executable, "-m", "uvicorn", app_path, "--host", host, "--port", str(port)]
     kwargs: dict = {}
     if os.name == "nt":
         create_no_window, new_group = 0x08000000, 0x00000200
@@ -224,7 +275,7 @@ def cmd_start(args: argparse.Namespace) -> int:
         kwargs["start_new_session"] = True
     with open(_log_file(), "a", encoding="utf-8") as log:
         process = subprocess.Popen(
-            command, cwd=paths.REPO_ROOT, stdin=subprocess.DEVNULL,
+            command, cwd=paths.state_dir(), stdin=subprocess.DEVNULL,
             stdout=log, stderr=subprocess.STDOUT, **kwargs,
         )
     _pid_file().write_text(str(process.pid), encoding="utf-8")
@@ -283,6 +334,7 @@ def cmd_status(args: argparse.Namespace) -> int:
         print(f"Hooks   : partially installed, missing {', '.join(missing)} (run: aps install)")
     else:
         print("Hooks   : installed")
+    print(f"Policy  : {paths.policy_dir()}")
     return 0 if info and not missing else 1
 
 
@@ -297,7 +349,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         results.append((status, name, detail))
 
     check(OK if sys.version_info >= (3, 10) else FAIL, "Python 3.10+", sys.version.split()[0])
-    check(OK if paths.repo_is_complete() else FAIL, "Supervisor files", str(paths.REPO_ROOT))
+    check(OK if paths.package_is_complete() else FAIL, "Supervisor files", str(paths.PACKAGE_DIR))
 
     missing = []
     for module in ("fastapi", "uvicorn", "yaml", "pydantic", "dotenv"):
@@ -305,13 +357,16 @@ def cmd_doctor(args: argparse.Namespace) -> int:
             __import__(module)
         except ImportError:
             missing.append(module)
-    check(FAIL if missing else OK, "Runtime packages", f"missing: {', '.join(missing)} (pip install -e .)" if missing else "")
+    check(FAIL if missing else OK, "Runtime packages",
+          f"missing: {', '.join(missing)} (pip install ai-permission-supervisor)" if missing else "")
 
+    policy_dir = paths.policy_dir()
     try:
         import yaml
-        policy = yaml.safe_load((paths.POLICY_DIR / "policy.yaml").read_text(encoding="utf-8")) or {}
+        policy = yaml.safe_load((policy_dir / "policy.yaml").read_text(encoding="utf-8")) or {}
         rails = len(policy.get("hard_rails", []))
-        check(OK if rails else FAIL, "Policy file", f"version {policy.get('meta', {}).get('version_tag')}, {rails} hard rails")
+        check(OK if rails else FAIL, "Policy file",
+              f"version {policy.get('meta', {}).get('version_tag')}, {rails} hard rails, {policy_dir}")
     except Exception as exc:  # noqa: BLE001 - report any problem
         check(FAIL, "Policy file", str(exc))
 
@@ -329,6 +384,13 @@ def cmd_doctor(args: argparse.Namespace) -> int:
             check(OK, "Bob hooks", str(settings_path))
         if bob_hooks.has_probe_hooks(settings):
             check(WARN, "Probe hooks", "Step 1 probe hooks still installed (aps install --remove-probe)")
+        groups, star = bob_hooks.auto_approve_status(settings)
+        if not installed and ("execute" in groups or star):
+            check(FAIL, "Bob auto-approve", "shell commands are auto-approved but no Supervisor hook is installed: they run unchecked")
+        elif installed and "execute" not in groups:
+            check(WARN, "Bob auto-approve", "off for shell commands, so Bob also prompts (aps install --bob-auto-approve)")
+        elif installed:
+            check(OK, "Bob auto-approve", "on; the Supervisor is the single gate")
     except bob_hooks.SettingsError as exc:
         check(FAIL, "Bob hooks", str(exc))
 
@@ -343,7 +405,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
               f"need escalation < hook client < Bob hook, got {escalation:g}s / {deadline:g}s / {hook_timeout}s; "
               "a hook killed by Bob's timeout lets the tool run")
 
-    if paths.repo_is_complete():
+    if paths.package_is_complete():
         ok, detail = _smoke_test_hook(_hook_python(None))
         check(OK if ok else FAIL, "Hook client", detail)
 
@@ -360,11 +422,11 @@ def cmd_doctor(args: argparse.Namespace) -> int:
 
 
 # ---------------------------------------------------------------------------
-# autostart
+# autostart / policy
 # ---------------------------------------------------------------------------
 
 def cmd_autostart(args: argparse.Namespace) -> int:
-    if not _require_repo():
+    if not _require_package():
         return 1
     plan = autostart.build_plan()
     if args.action == "enable":
@@ -382,6 +444,23 @@ def cmd_autostart(args: argparse.Namespace) -> int:
     return 1 if errors else 0
 
 
+def cmd_policy(args: argparse.Namespace) -> int:
+    if args.action == "path":
+        print(paths.policy_dir())
+        return 0
+    target = paths.state_dir() / "policy"
+    if (target / "policy.yaml").exists() and not args.force:
+        print(f"Your policy already exists: {target} (use --force to replace it with the default)")
+        return 1
+    target.mkdir(parents=True, exist_ok=True)
+    for name in ("policy.yaml", "taxonomy.yaml"):
+        shutil.copy2(paths.PACKAGED_POLICY_DIR / name, target / name)
+    print(f"Created your editable policy in {target}")
+    print("Edit policy.yaml there, then restart the service (aps stop, aps start) to switch to it.\n"
+          "After that, edits are picked up within 5 minutes. The agent cannot read or change this folder.")
+    return 0
+
+
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
@@ -393,11 +472,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("install", help="register the Supervisor hooks in Bob's global settings")
     p.add_argument("--python", help="interpreter for the hook command (default: this one)")
+    p.add_argument("--bob-auto-approve", action="store_true",
+                   help="turn on Bob's own auto-approve for read/edit/execute so the Supervisor is the single gate")
     p.add_argument("--remove-probe", action="store_true", help="also remove Step 1 probe hooks")
-    p.add_argument("--dry-run", action="store_true", help="show the hooks without writing anything")
+    p.add_argument("--dry-run", action="store_true", help="show the result without writing anything")
     p.set_defaults(func=cmd_install)
 
-    p = sub.add_parser("uninstall", help="remove the Supervisor hooks from Bob's settings")
+    p = sub.add_parser("uninstall", help="remove the Supervisor hooks (and auto-approve it added)")
     p.add_argument("--remove-probe", action="store_true", help="also remove Step 1 probe hooks")
     p.set_defaults(func=cmd_uninstall)
 
@@ -414,6 +495,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("action", choices=["enable", "disable"])
     p.add_argument("--no-activate", action="store_true", help="only write/remove the file, do not call launchctl/systemctl")
     p.set_defaults(func=cmd_autostart)
+
+    p = sub.add_parser("policy", help="show or create your editable policy")
+    p.add_argument("action", choices=["path", "init"])
+    p.add_argument("--force", action="store_true", help="init: replace an existing policy with the default")
+    p.set_defaults(func=cmd_policy)
     return parser
 
 

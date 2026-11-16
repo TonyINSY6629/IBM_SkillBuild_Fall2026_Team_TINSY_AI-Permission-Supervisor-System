@@ -1,5 +1,5 @@
 """
-aps_cli/autostart.py — Start the Supervisor automatically at login.
+ai_permission_supervisor/cli/autostart.py — Start the Supervisor automatically at login.
 
 The Supervisor must be running before Bob is used; otherwise every tool call
 is denied (fail-closed). Starting it from a Bob SessionStart hook is not
@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from xml.sax.saxutils import escape
 
-from aps_cli import paths
+from ai_permission_supervisor.cli import paths
 
 LABEL = "com.team-tinsy.ai-permission-supervisor"
 SYSTEMD_UNIT = "ai-permission-supervisor.service"
@@ -56,7 +56,7 @@ def build_plan(python: str | Path | None = None, system: str | None = None, home
     python = Path(python or sys.executable)
     system = system or _system()
     home = home or Path.home()
-    repo = paths.REPO_ROOT
+    workdir = paths.state_dir()
     log_file = paths.state_dir() / "supervisor.log"
 
     if system == "windows":
@@ -66,14 +66,14 @@ def build_plan(python: str | Path | None = None, system: str | None = None, home
             "@echo off\r\n"
             "rem AI Permission Supervisor - starts the local Supervisor service at login.\r\n"
             "rem Remove with: aps autostart disable\r\n"
-            f'cd /d "{repo}"\r\n'
-            f'start "" "{_windowless_python(python)}" -m aps_cli start\r\n'
+            f'cd /d "{workdir}"\r\n'
+            f'start "" "{_windowless_python(python)}" -m ai_permission_supervisor.cli start\r\n'
         )
         return AutostartPlan("windows", startup / WINDOWS_FILE, content, [], [])
 
     if system == "macos":
         plist = home / "Library" / "LaunchAgents" / f"{LABEL}.plist"
-        args = "".join(f"\n    <string>{escape(str(a))}</string>" for a in (python, "-m", "aps_cli", "start", "--foreground"))
+        args = "".join(f"\n    <string>{escape(str(a))}</string>" for a in (python, "-m", "ai_permission_supervisor.cli", "start", "--foreground"))
         content = f"""<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -84,7 +84,7 @@ def build_plan(python: str | Path | None = None, system: str | None = None, home
   <array>{args}
   </array>
   <key>WorkingDirectory</key>
-  <string>{escape(str(repo))}</string>
+  <string>{escape(str(workdir))}</string>
   <key>RunAtLoad</key>
   <true/>
   <key>KeepAlive</key>
@@ -107,8 +107,8 @@ def build_plan(python: str | Path | None = None, system: str | None = None, home
 Description=AI Permission Supervisor (local guardrail for AI coding agents)
 
 [Service]
-WorkingDirectory={repo}
-ExecStart="{python}" -m aps_cli start --foreground
+WorkingDirectory={workdir}
+ExecStart="{python}" -m ai_permission_supervisor.cli start --foreground
 Restart=on-failure
 RestartSec=3
 

@@ -29,7 +29,7 @@ import pytest
 # Ensure project root is on path so `supervisor` package is importable.
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from supervisor.audit import (
+from ai_permission_supervisor.supervisor.audit import (
     GENESIS_HASH,
     AuditLog,
     AuditWriteError,
@@ -269,6 +269,10 @@ class TestWriteFailure:
     @pytest.mark.skipif(
         sys.platform == "win32",
         reason="chmod does not restrict NTFS write access for the file owner on Windows.",
+    )
+    @pytest.mark.skipif(
+        sys.platform == "win32" or (hasattr(os, "geteuid") and os.geteuid() == 0),
+        reason="directory permissions do not stop writes on Windows or for root",
     )
     def test_unwritable_directory_raises(self, tmp_path):
         """If the log directory is unwritable, write_entry must raise AuditWriteError."""

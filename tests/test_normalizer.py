@@ -26,8 +26,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from schemas.permission_request import ActionType
-from supervisor.normalizer import NormalizerError, normalize
+from ai_permission_supervisor.schemas.permission_request import ActionType
+from ai_permission_supervisor.supervisor.normalizer import NormalizerError, normalize
 
 # ---------------------------------------------------------------------------
 # Shared workspace root for all tests (project directory)
@@ -143,8 +143,10 @@ class TestInsideWorkspace:
         assert req.inside_workspace is True
 
     def test_outside_path_is_outside(self):
+        # An absolute path outside the project on this operating system.
+        outside = "C:/Windows/system32/evil.dll" if sys.platform == "win32" else "/usr/lib/evil.so"
         req = normalize(_payload("write_file", {
-            "path": "C:/Windows/system32/evil.dll",
+            "path": outside,
             "content": "x", "line_count": 1,
         }), WORKSPACE)
         assert req.inside_workspace is False

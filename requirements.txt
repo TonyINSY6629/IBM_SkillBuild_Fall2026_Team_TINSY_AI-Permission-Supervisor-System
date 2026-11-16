@@ -1,22 +1,8 @@
-# AI Permission Supervisor — Python dependencies
+# AI Permission Supervisor — development install
 #
-# Runtime (Supervisor service + Hook Client)
-fastapi>=0.110.0
-uvicorn[standard]>=0.29.0
-pydantic>=2.0.0
-pyyaml>=6.0
-python-dotenv>=1.0.0   # load .env at startup
-
-# IBM Cloud Object Storage (COS sync + dataset export)
-ibm-cos-sdk>=2.13.0
-
-# Teacher pipeline (DSPy + watsonx.ai)
-dspy-ai==3.4.1          # pinned — WatsonxLM wrapper depends on DSPy internals
-ibm-watsonx-ai>=1.1.0
-
-# Development / testing
-pytest>=8.0.0
-pytest-asyncio>=0.23.0
-httpx>=0.27.0          # test client for FastAPI
-# NEW: Bug 18 - newer Starlette's TestClient needs httpx2 (tests fail to load without it)
-httpx2
+# Dependencies are declared in pyproject.toml. This file installs this
+# checkout in editable mode with every extra (cloud sync, teacher pipeline,
+# tests), for the team's existing `pip install -r requirements.txt` workflow.
+#
+# End users only need:  pip install ai-permission-supervisor
+-e .[cloud,teacher,dev]

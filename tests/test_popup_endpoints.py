@@ -2,8 +2,8 @@
 import os, threading, time
 os.environ["ESCALATION_OPEN_BROWSER"] = "0"
 from fastapi.testclient import TestClient
-from supervisor import escalation as E
-from supervisor.app import app
+from ai_permission_supervisor.supervisor import escalation as E
+from ai_permission_supervisor.supervisor.app import app
 
 
 def test_data_then_allow_resolves():

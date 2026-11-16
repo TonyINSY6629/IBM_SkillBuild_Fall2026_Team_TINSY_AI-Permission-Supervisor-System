@@ -34,7 +34,7 @@ import re
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any, Optional
 
-from schemas.permission_request import ActionType, PermissionRequest
+from ai_permission_supervisor.schemas.permission_request import ActionType, PermissionRequest
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -101,11 +101,57 @@ _SUPERVISOR_PATH_PATTERNS: tuple[str, ...] = (
     "hook_client\\main.py",
     "hook_client/probe.py",
     "hook_client\\probe.py",
+    "tools/probe/probe.py",
     ".bob/settings",
     ".bob\\settings",
     # State directory written by the `aps` CLI (hook backups, pid file, logs).
     ".ai_permission_supervisor",
 )
+
+
+
+def _protected_dirs() -> tuple[str, ...]:
+    """
+    Directories that belong to the running Supervisor, normalised to lower-case
+    forward-slash form: the active policy, the state directory, and the
+    installed package itself (service code, default policy, hook client).
+
+    Without this, an agent whose workspace contains the Supervisor (for example
+    a source checkout) could edit policy.yaml or the service code like any
+    ordinary workspace file. Set APS_ALLOW_SELF_EDIT=1 in the service's
+    environment only while developing the Supervisor itself; the active policy
+    and the state directory stay protected even then.
+
+    Read at call time so environment changes in tests are honoured.
+    """
+    from ai_permission_supervisor import config
+
+    dirs = [config.policy_dir(), config.state_dir()]
+    if os.environ.get("APS_ALLOW_SELF_EDIT", "") not in ("1", "true", "yes"):
+        dirs.append(config.PACKAGE_DIR)
+    out = []
+    for d in dirs:
+        try:
+            d = Path(d).expanduser().resolve()
+        except (OSError, RuntimeError):
+            d = Path(d)
+        out.append(str(d).replace("\\", "/").lower().rstrip("/") + "/")
+    return tuple(out)
+
+
+def _targets_touch_protected_dir(targets: list[str], cwd: str, file_tool: bool) -> bool:
+    protected = _protected_dirs()
+    for raw in targets:
+        forms = [raw.replace("\\", "/").lower()]
+        if file_tool and raw:
+            try:
+                forms.append(str(_resolve_path(raw, cwd or os.getcwd())).replace("\\", "/").lower() + "/")
+            except (OSError, ValueError):
+                pass
+        if any(d in f or f.rstrip("/") + "/" == d for f in forms for d in protected):
+            return True
+    return False
+
 
 # Hostnames the Supervisor service can be reached on from the same machine.
 _LOCAL_HOSTS: tuple[str, ...] = ("127.0.0.1", "localhost", "0.0.0.0", "[::1]")
@@ -243,6 +289,7 @@ def _categorize(
     targets: list[str],
     inside_workspace: bool,
     touches_secrets: bool,
+    cwd: str = "",
 ) -> str:
     """
     Map a normalized tool call to a taxonomy category id.
@@ -266,6 +313,10 @@ def _categorize(
         for pat in endpoint_patterns:
             if pat in t_lower:
                 return "supervisor_path_access"
+    if _targets_touch_protected_dir(
+        targets, cwd, file_tool=action_type in (ActionType.READ, ActionType.WRITE)
+    ):
+        return "supervisor_path_access"
 
     # 2. Write outside workspace
     if action_type == ActionType.WRITE and not inside_workspace:
@@ -342,7 +393,7 @@ def normalize(
     targets = _extract_targets(tool_name, tool_input)
     inside_ws = _inside_workspace(targets, cwd, workspace_roots)
     sec = _touches_secrets(targets)
-    category = _categorize(tool_name, action_type, targets, inside_ws, sec)
+    category = _categorize(tool_name, action_type, targets, inside_ws, sec, cwd)
 
     return PermissionRequest(
         tool_use_id=tool_use_id,

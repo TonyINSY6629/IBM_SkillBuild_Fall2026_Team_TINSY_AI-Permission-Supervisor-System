@@ -1,3 +1,5 @@
 """`aps` — command-line tool to install and run the AI Permission Supervisor."""
 
-__version__ = "0.1.0"
+from ai_permission_supervisor import __version__
+
+__all__ = ["__version__"]

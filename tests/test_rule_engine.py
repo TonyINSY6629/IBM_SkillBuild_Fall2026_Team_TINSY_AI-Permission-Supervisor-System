@@ -32,14 +32,14 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from schemas.permission_request import ActionType, PermissionRequest
-from schemas.verdict import Action, DecidedBy, Label
-from supervisor.audit import AuditLog
-from supervisor.policy_engine import PolicyEngine, PolicyEngineError
-from supervisor.rule_engine import RuleEngine, load_policy
+from ai_permission_supervisor.schemas.permission_request import ActionType, PermissionRequest
+from ai_permission_supervisor.schemas.verdict import Action, DecidedBy, Label
+from ai_permission_supervisor.supervisor.audit import AuditLog
+from ai_permission_supervisor.supervisor.policy_engine import PolicyEngine, PolicyEngineError
+from ai_permission_supervisor.supervisor.rule_engine import RuleEngine, load_policy
 
 PROJECT_ROOT = str(Path(__file__).parent.parent.resolve())
-POLICY_PATH = Path(PROJECT_ROOT) / "policy" / "policy.yaml"
+POLICY_PATH = Path(PROJECT_ROOT) / "ai_permission_supervisor" / "policy" / "policy.yaml"
 
 
 # ---------------------------------------------------------------------------
@@ -351,7 +351,7 @@ class TestPolicyEngineAudit:
     def test_audit_write_failure_raises_policy_engine_error(self, tmp_path):
         """If the audit log write fails, PolicyEngine must raise PolicyEngineError."""
         failing_audit = MagicMock(spec=AuditLog)
-        from supervisor.audit import AuditWriteError
+        from ai_permission_supervisor.supervisor.audit import AuditWriteError
         failing_audit.write_entry.side_effect = AuditWriteError("disk full")
 
         engine = PolicyEngine(_engine(), failing_audit)
@@ -407,7 +407,7 @@ class TestPolicyEngineAudit:
     def test_escalation_writes_feedback_entry(self, tmp_path):
         """After escalation resolves, a second audit entry with record_type=human_feedback must be written."""
         import json
-        from supervisor.escalation import EscalationManager
+        from ai_permission_supervisor.supervisor.escalation import EscalationManager
         import threading, time
 
         audit = _audit(tmp_path)

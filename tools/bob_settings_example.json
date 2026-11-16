@@ -1,12 +1,13 @@
 {
   "_comment": [
-    "Reference example only. Prefer `aps install`, which writes these hooks into",
-    "~/.bob/settings/settings.json with absolute paths for your machine, makes a",
+    "Reference example only. Use `aps install`, which writes these hooks into",
+    "~/.bob/settings/settings.json with the right paths for your machine, makes a",
     "backup first, and keeps your other settings.",
     "",
     "Manual setup: replace <PYTHON> with the full path of your Python interpreter",
     "(not 'python3', which can open the Microsoft Store on Windows; a hook that",
-    "fails to start does NOT block the tool call) and <REPO> with this repository's path.",
+    "fails to start does NOT block the tool call) and <HOOK> with the output of:",
+    "  python -c \"from ai_permission_supervisor import config; print(config.HOOK_SCRIPT)\"",
     "",
     "Timeout ordering (must be maintained):",
     "  escalation_timeout (120 s) < HOOK_DEADLINE_SECONDS (130 s) < PreToolUse timeout here (150 s)"
@@ -18,7 +19,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"<PYTHON>\" \"<REPO>/hook_client/main.py\"",
+            "command": "\"<PYTHON>\" \"<HOOK>\"",
             "timeout": 150
           }
         ]
@@ -29,7 +30,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"<PYTHON>\" \"<REPO>/hook_client/main.py\"",
+            "command": "\"<PYTHON>\" \"<HOOK>\"",
             "timeout": 10
           }
         ]
@@ -41,7 +42,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"<PYTHON>\" \"<REPO>/hook_client/main.py\"",
+            "command": "\"<PYTHON>\" \"<HOOK>\"",
             "timeout": 10
           }
         ]
@@ -52,7 +53,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"<PYTHON>\" \"<REPO>/hook_client/main.py\"",
+            "command": "\"<PYTHON>\" \"<HOOK>\"",
             "timeout": 10
           }
         ]

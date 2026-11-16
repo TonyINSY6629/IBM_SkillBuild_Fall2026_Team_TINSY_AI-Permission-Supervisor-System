@@ -20,8 +20,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from aps_cli import autostart, bob_hooks, paths
-from aps_cli.main import main
+from ai_permission_supervisor.cli import autostart, bob_hooks, paths
+from ai_permission_supervisor.cli.main import main
 
 CMD = bob_hooks.hook_command(sys.executable, paths.HOOK_SCRIPT)
 
@@ -145,7 +145,7 @@ class TestInstallCommand:
         first = settings_path.read_text(encoding="utf-8")
         assert main(["install"]) == 0
         assert settings_path.read_text(encoding="utf-8") == first
-        assert "already installed" in capsys.readouterr().out
+        assert "Already installed" in capsys.readouterr().out
 
     def test_install_refuses_invalid_json(self, env):
         settings_path, _ = env
@@ -208,16 +208,85 @@ class TestAutostart:
         autostart.enable(plan, activate=False)
         assert plan.file.exists()
         text = plan.file.read_text(encoding="utf-8")
-        assert "aps_cli" in text and str(paths.REPO_ROOT) in text
+        assert "ai_permission_supervisor.cli" in text
         existed, errors = autostart.disable(plan, activate=False)
         assert existed and not errors and not plan.file.exists()
 
     def test_systemd_unit_runs_in_foreground(self, tmp_path):
         plan = autostart.build_plan(python="/opt/py/bin/python", system="linux", home=tmp_path)
-        assert 'ExecStart="/opt/py/bin/python" -m aps_cli start --foreground' in plan.content
+        assert 'ExecStart="/opt/py/bin/python" -m ai_permission_supervisor.cli start --foreground' in plan.content
 
     def test_windows_file_uses_crlf(self, tmp_path, monkeypatch):
         monkeypatch.setenv("APPDATA", str(tmp_path))
         plan = autostart.build_plan(python=tmp_path / "python.exe", system="windows", home=tmp_path)
         autostart.enable(plan, activate=False)
         assert b"\r\n" in plan.file.read_bytes()
+
+
+# ---------------------------------------------------------------------------
+# Bob auto-approve: added by install --bob-auto-approve, reverted by uninstall
+# ---------------------------------------------------------------------------
+
+class TestBobAutoApprove:
+    def test_enable_and_revert_round_trip(self):
+        original = {"approval": {"forbiddenApprovalGroups": [], "allowed_permissions": ["mode"]}}
+        enabled, record = bob_hooks.enable_auto_approve(original)
+        groups, star = bob_hooks.auto_approve_status(enabled)
+        assert {"read", "edit", "execute", "mode"} <= groups and star
+        assert bob_hooks.revert_auto_approve(enabled, record) == original
+
+    def test_revert_keeps_what_the_user_already_had(self):
+        original = {"approval": {"allowed_permissions": ["execute"], "allowedExecutors": [
+            {"toolId": "execute_command", "approvedCommands": ["git status"]}]}}
+        enabled, record = bob_hooks.enable_auto_approve(original)
+        assert record["groups"] == ["read", "edit"]
+        assert bob_hooks.revert_auto_approve(enabled, record) == original
+
+    def test_revert_from_empty_settings_leaves_nothing(self):
+        enabled, record = bob_hooks.enable_auto_approve({})
+        assert bob_hooks.revert_auto_approve(enabled, record) == {}
+
+    def test_install_flag_then_uninstall_restores_settings(self, env):
+        settings_path, state = env
+        _write(settings_path, {"theme": "dark", "approval": {"forbiddenApprovalGroups": []}})
+        assert main(["install", "--bob-auto-approve"]) == 0
+        data = json.loads(settings_path.read_text(encoding="utf-8"))
+        assert "execute" in data["approval"]["allowed_permissions"]
+        assert (state / "bob_auto_approve.json").exists()
+        assert main(["uninstall"]) == 0
+        assert json.loads(settings_path.read_text(encoding="utf-8")) == {
+            "theme": "dark", "approval": {"forbiddenApprovalGroups": []}}
+        assert not (state / "bob_auto_approve.json").exists()
+
+    def test_forbidden_group_is_refused(self, env):
+        settings_path, _ = env
+        _write(settings_path, {"approval": {"forbiddenApprovalGroups": ["execute"]}})
+        assert main(["install", "--bob-auto-approve"]) == 1
+        assert "hooks" not in json.loads(settings_path.read_text(encoding="utf-8"))
+
+    def test_uninstall_warns_when_user_kept_auto_approve(self, env, capsys):
+        settings_path, _ = env
+        settings = bob_hooks.add_supervisor_hooks({"approval": {"allowed_permissions": ["execute"]}}, CMD)
+        _write(settings_path, settings)
+        main(["uninstall"])
+        assert "run\nunchecked" in capsys.readouterr().out
+
+    def test_doctor_fails_when_auto_approve_without_hooks(self, env, capsys):
+        settings_path, _ = env
+        _write(settings_path, {"approval": {"allowed_permissions": ["execute"]}})
+        assert main(["doctor"]) == 1
+        assert "[FAIL] Bob auto-approve" in capsys.readouterr().out
+
+
+class TestPolicyCommand:
+    def test_init_copies_default_policy_and_service_uses_it(self, env, capsys):
+        _, state = env
+        assert main(["policy", "init"]) == 0
+        assert (state / "policy" / "policy.yaml").is_file()
+        assert (state / "policy" / "taxonomy.yaml").is_file()
+        assert paths.policy_dir() == state / "policy"
+        assert main(["policy", "init"]) == 1  # does not overwrite without --force
+        assert main(["policy", "init", "--force"]) == 0
+
+    def test_default_is_packaged_policy(self, env):
+        assert paths.policy_dir() == paths.PACKAGED_POLICY_DIR

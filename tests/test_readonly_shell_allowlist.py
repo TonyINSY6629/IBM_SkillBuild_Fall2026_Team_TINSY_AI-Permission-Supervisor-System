@@ -20,13 +20,13 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from schemas.permission_request import ActionType, PermissionRequest
-from schemas.verdict import Action, DecidedBy
-from supervisor.normalizer import normalize
-from supervisor.rule_engine import RuleEngine, load_policy
+from ai_permission_supervisor.schemas.permission_request import ActionType, PermissionRequest
+from ai_permission_supervisor.schemas.verdict import Action, DecidedBy
+from ai_permission_supervisor.supervisor.normalizer import normalize
+from ai_permission_supervisor.supervisor.rule_engine import RuleEngine, load_policy
 
 PROJECT_ROOT = str(Path(__file__).parent.parent.resolve())
-ENGINE = RuleEngine(load_policy(Path(PROJECT_ROOT) / "policy" / "policy.yaml"))
+ENGINE = RuleEngine(load_policy(Path(PROJECT_ROOT) / "ai_permission_supervisor" / "policy" / "policy.yaml"))
 
 
 def _verdict(command: str):

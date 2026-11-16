@@ -27,10 +27,10 @@ import logging
 import uuid
 from typing import Any, Optional
 
-from schemas.permission_request import PermissionRequest
-from schemas.verdict import Action, Verdict
-from supervisor.audit import AuditLog, AuditWriteError
-from supervisor.rule_engine import RuleEngine
+from ai_permission_supervisor.schemas.permission_request import PermissionRequest
+from ai_permission_supervisor.schemas.verdict import Action, Verdict
+from ai_permission_supervisor.supervisor.audit import AuditLog, AuditWriteError
+from ai_permission_supervisor.supervisor.rule_engine import RuleEngine
 
 log = logging.getLogger("supervisor.policy_engine")
 
