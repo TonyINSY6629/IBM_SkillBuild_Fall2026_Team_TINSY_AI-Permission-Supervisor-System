@@ -426,34 +426,39 @@ Steps:
 
 ---
 
-## File Layout (Target)
+## File Layout
+
+Updated 2026-11-17: restructured into one installable package
+(`pip install ai-permission-supervisor`). Imports are now
+`ai_permission_supervisor.supervisor.*` and `ai_permission_supervisor.schemas.*`.
 
 ```
 Project/
-├── hook_client/
-│   └── main.py                  # Thin hook client — exits 0 or 2 only
-├── supervisor/
-│   ├── app.py                   # Supervisor service (FastAPI)
-│   ├── audit.py                 # Append-only hash-chained audit log
-│   ├── normalizer.py            # Bob payload → PermissionRequest
-│   ├── rule_engine.py           # PolicyRuleset matcher
-│   ├── policy_engine.py         # Verdict + audit write
-│   ├── escalation.py            # Approval prompt + timeout
-│   └── context_store.py        # Session prompt context
-├── schemas/
-│   ├── permission_request.py    # Pydantic: PermissionRequest
-│   └── verdict.py               # Pydantic: Verdict
-├── policy/
-│   ├── policy.yaml              # Decision table + hard rails
-│   └── taxonomy.yaml            # Category definitions
+├── ai_permission_supervisor/        # the installable package (wheel contents)
+│   ├── config.py                    # shared paths: state dir, policy dir, .env files
+│   ├── hook_client/main.py          # thin hook client — exits 0 or 2 only (stdlib only)
+│   ├── supervisor/                  # the service (FastAPI)
+│   │   ├── app.py                   # /health, /decide, escalation endpoints
+│   │   ├── audit.py                 # append-only hash-chained audit log
+│   │   ├── normalizer.py            # Bob payload → PermissionRequest
+│   │   ├── rule_engine.py           # policy matcher (incl. command_matches)
+│   │   ├── policy_engine.py         # verdict + audit write
+│   │   ├── escalation.py            # approval page + timeout
+│   │   ├── context_store.py         # session prompt context
+│   │   └── cos_sync.py              # audit sync to IBM Cloud Object Storage
+│   ├── schemas/                     # Pydantic: PermissionRequest, Verdict
+│   ├── policy/                      # default policy.yaml + taxonomy.yaml
+│   └── cli/                         # `aps` command (install, start, doctor, autostart, policy)
+├── teacher/, scripts/               # build-time pipeline (not shipped in the package)
+├── tools/probe/                     # Step 1 probe hook
+├── UI/                              # React escalation pop-up (development)
 ├── tests/
-│   ├── test_hook_client.py      # Fail-closed cases
-│   ├── test_audit.py            # Hash-chain tamper detection
-│   ├── test_normalizer.py       # Step 1 log replay
-│   ├── test_rule_engine.py      # Hard rail + allow + escalate
-│   └── test_escalation.py      # Timeout → deny
-└── ai-permission-supervisor-plan.md
+├── .github/workflows/               # CI (Windows/macOS/Linux) and PyPI release
+└── README.md, CHANGELOG.md, PUBLISHING.md, ai-permission-supervisor-plan.md
 ```
+
+User state lives in `~/.ai_permission_supervisor/` (settings backups, editable
+policy, `.env`, service log). The audit log stays in `~/supervisor_audit/`.
 
 ---
 
