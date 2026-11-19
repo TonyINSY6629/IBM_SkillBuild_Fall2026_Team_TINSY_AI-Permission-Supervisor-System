@@ -124,6 +124,16 @@ evaluation gate on held-out and adversarial test cases.
 
 Source files for all diagrams are in [`diagrams/`](diagrams/).
 
+### Step 5 results (November 2026)
+
+- **Teacher:** Llama 3.3 70B on watsonx.ai, prompt optimized with DSPy (BootstrapFewShot, 50 examples). On 30 unseen training examples: 80% action accuracy (always-allow baseline: ~77%).
+- **Labels:** the teacher labeled all 158 training examples (146 allow, 12 deny).
+- **Student:** IBM Granite 3.3 2B Instruct, fine-tuned with LoRA on the teacher labels (deny examples repeated 4x), then quantized to 4-bit GGUF (Q4_K_M, 1.5 GB). Runs locally with llama.cpp, about 9 seconds per answer on a laptop CPU.
+- **Held-out test (34 examples, compared with our own decisions):** 73.5% accuracy, the same as always answering "allow", and 0 of 9 denies caught. **Gate: FAIL.**
+- **Outcome:** as the plan requires, the failed model was not pushed to the registry or connected to the supervisor. Tool calls that no rule matches still go to a human.
+- **Why it failed:** the teacher is more permissive than we are (12 of 158 denies), so the student learned to allow everything. Next step: train on our own decisions and improve the teacher's deny behaviour.
+- **Reproduce:** `py -3.13 -m student.prepare_data`, train in Google Colab, then run `llama-server` on port 9002 and `py -3.13 -m student.evaluate`.
+
 ## Commands
 
 | Command | What it does |
