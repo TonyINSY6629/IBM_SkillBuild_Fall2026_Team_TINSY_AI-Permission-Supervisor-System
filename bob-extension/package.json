@@ -1,0 +1,37 @@
+{
+  "name": "ai-permission-supervisor",
+  "displayName": "AI Permission Supervisor",
+  "description": "Set up, start and monitor the AI Permission Supervisor, a local guardrail that checks every tool call your AI coding agent makes.",
+  "version": "0.1.0",
+  "publisher": "team-tinsy",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/TonyINSY6629/IBM_SkillBuild_Fall2026_Team_TINSY_AI-Permission-Supervisor-System"
+  },
+  "engines": { "vscode": "^1.80.0" },
+  "categories": ["Other"],
+  "keywords": ["security", "permissions", "guardrail", "ai agent", "audit"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "AI Permission Supervisor",
+      "properties": {
+        "aiPermissionSupervisor.pythonCommand": {
+          "type": "string",
+          "default": "",
+          "description": "Command used to run Python, for example \"py -3.13\" or \"python3\". Leave empty to use \"py -3\" on Windows and \"python3\" elsewhere. Use the Python where the supervisor is installed."
+        }
+      }
+    },
+    "commands": [
+      { "command": "aps.setup", "title": "AI Permission Supervisor: Set up" },
+      { "command": "aps.start", "title": "AI Permission Supervisor: Start" },
+      { "command": "aps.stop", "title": "AI Permission Supervisor: Stop" },
+      { "command": "aps.status", "title": "AI Permission Supervisor: Check status" },
+      { "command": "aps.auditLog", "title": "AI Permission Supervisor: Open audit log" },
+      { "command": "aps.uninstall", "title": "AI Permission Supervisor: Uninstall from Bob" }
+    ]
+  }
+}

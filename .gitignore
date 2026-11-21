@@ -32,3 +32,7 @@ logs/
 *.egg-info/
 build/
 dist/
+
+# Bob extension build output
+bob-extension/*.vsix
+bob-extension/node_modules/
